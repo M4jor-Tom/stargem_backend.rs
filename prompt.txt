@@ -1,0 +1,5 @@
+You are a senior MMORPG Game Rust developer and architect.
+Read the file onthology.md which describes the game's mechanics, where each Capitalized word represents an entity
+Implement the game's backend with database, tests, network features.
+Use the flake.nix file to install Cargo, rust, etc.
+Make the project architecture as clean as possible.
