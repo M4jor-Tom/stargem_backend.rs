@@ -1,18 +1,20 @@
 use crate::api::GameService;
-use crate::network::{ClientMessage, ClientSession, ServerMessage, SessionManager};
+use crate::network::{ClientMessage, ClientSession, ServerMessage, SessionManager, TlsConfig};
 use crate::AppError;
 use bytes::{Buf, Bytes};
 use std::sync::Arc;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::mpsc;
-use tracing::{debug, error, info};
+use tokio_rustls::server::TlsStream;
+use tracing::{debug, error, info, warn};
 use uuid::Uuid;
 
 pub struct GameServer {
     session_manager: Arc<SessionManager>,
     game_service: Arc<GameService>,
     address: String,
+    tls_config: Option<Arc<TlsConfig>>,
 }
 
 impl GameServer {
@@ -21,6 +23,16 @@ impl GameServer {
             session_manager: Arc::new(SessionManager::new()),
             game_service,
             address,
+            tls_config: None,
+        }
+    }
+
+    pub fn with_tls(address: String, game_service: Arc<GameService>, tls_config: TlsConfig) -> Self {
+        Self {
+            session_manager: Arc::new(SessionManager::new()),
+            game_service,
+            address,
+            tls_config: Some(Arc::new(tls_config)),
         }
     }
 
@@ -32,14 +44,25 @@ impl GameServer {
         let listener = TcpListener::bind(&self.address).await?;
         info!("Game server listening on {}", self.address);
 
+        if self.tls_config.is_some() {
+            info!("TLS encryption enabled");
+        }
+
         loop {
             match listener.accept().await {
                 Ok((socket, addr)) => {
                     info!("New connection from {}", addr);
                     let session_manager = self.session_manager.clone();
                     let game_service = self.game_service.clone();
+                    let tls_config = self.tls_config.clone();
+
                     tokio::spawn(async move {
-                        if let Err(e) = handle_connection(socket, session_manager, game_service).await {
+                        let result = if let Some(tls) = tls_config {
+                            handle_tls_connection(socket, session_manager, game_service, tls).await
+                        } else {
+                            handle_connection(socket, session_manager, game_service).await
+                        };
+                        if let Err(e) = result {
                             error!("Connection error: {}", e);
                         }
                     });
@@ -50,6 +73,84 @@ impl GameServer {
             }
         }
     }
+}
+
+async fn handle_tls_connection(
+    socket: TcpStream,
+    session_manager: Arc<SessionManager>,
+    game_service: Arc<GameService>,
+    tls_config: Arc<TlsConfig>,
+) -> Result<(), AppError> {
+    let tls_acceptor = tokio_rustls::TlsAcceptor::from(tls_config.server_config.clone());
+    
+    let stream = match tls_acceptor.accept(socket).await {
+        Ok(s) => s,
+        Err(e) => {
+            warn!("TLS handshake failed: {}", e);
+            return Err(AppError::Network(format!("TLS handshake failed: {}", e)));
+        }
+    };
+
+    handle_tls_stream(stream, session_manager, game_service).await
+}
+
+async fn handle_tls_stream(
+    stream: TlsStream<TcpStream>,
+    session_manager: Arc<SessionManager>,
+    game_service: Arc<GameService>,
+) -> Result<(), AppError> {
+    let (tx, mut rx) = mpsc::channel::<ServerMessage>(100);
+
+    let session = Arc::new(tokio::sync::RwLock::new(ClientSession::new(tx)));
+    session_manager.add_session(session.clone());
+    let session_id = session.blocking_read().id;
+
+    let sm_reader = session_manager.clone();
+    let gs_reader = game_service.clone();
+
+    let stream_read = Arc::new(tokio::sync::Mutex::new(stream));
+    let stream_write = stream_read.clone();
+
+    let reader_handle = tokio::spawn(async move {
+        let mut stream = stream_read.lock().await;
+        let mut buf = vec![0u8; 65536];
+        loop {
+            match stream.read(&mut buf).await {
+                Ok(0) => break,
+                Ok(n) => {
+                    let data = Bytes::copy_from_slice(&buf[..n]);
+                    if let Err(e) = process_message(&sm_reader, &gs_reader, session_id, &data).await {
+                        error!("Error processing message: {}", e);
+                    }
+                }
+                Err(e) => {
+                    error!("Read error: {}", e);
+                    break;
+                }
+            }
+        }
+    });
+
+    let writer_handle = tokio::spawn(async move {
+        let mut stream = stream_write.lock().await;
+        while let Some(msg) = rx.recv().await {
+            let data = match serialize_message(&msg) {
+                Ok(d) => d,
+                Err(e) => {
+                    error!("Serialization error: {}", e);
+                    continue;
+                }
+            };
+            if let Err(e) = stream.write_all(&data).await {
+                error!("Write error: {}", e);
+                break;
+            }
+        }
+    });
+
+    let _ = tokio::join!(reader_handle, writer_handle);
+    session_manager.remove_session(session_id);
+    Ok(())
 }
 
 async fn handle_connection(
