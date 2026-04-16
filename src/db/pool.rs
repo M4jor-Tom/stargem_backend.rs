@@ -9,10 +9,3 @@ pub async fn create_pool(database_url: &str) -> Result<PgPool, sqlx::Error> {
         .connect(database_url)
         .await
 }
-
-pub async fn run_migrations(pool: &PgPool) -> Result<(), sqlx::Error> {
-    sqlx::migrate!("./migrations")
-        .run(pool)
-        .await
-        .map_err(|e| sqlx::Error::Protocol(e.to_string()))
-}
