@@ -21,6 +21,8 @@
             sqlx-cli
             openssl
             pkg-config
+            podman
+            podman-compose
           ];
           
           RUST_LOG = "stargem_server=debug,info";
@@ -30,12 +32,16 @@
             echo "Rust $(rustc --version) installed."
             echo ""
             echo "Commands:"
-            echo "  cargo build     - Build the project"
-            echo "  cargo test      - Run tests"
-            echo "  cargo run       - Run the server"
-            echo "  cargo clippy    - Lint the code"
-            echo "  cargo fmt       - Format code"
+            echo "  cargo build        - Build the project"
+            echo "  cargo test        - Run tests"
+            echo "  cargo test --test '*' -- --nocapture  - Run integration tests with output"
+            echo "  cargo run         - Run the server"
+            echo "  cargo clippy      - Lint the code"
+            echo "  cargo fmt         - Format code"
             echo ""
+            echo "Docker/Podman:"
+            echo "  cd compose && podman-compose -f docker-compose.test.yml up -d   # Start test DB"
+            echo "  podman-compose -f docker-compose.test.yml down -v              # Stop & remove test DB"
           '';
         };
       }

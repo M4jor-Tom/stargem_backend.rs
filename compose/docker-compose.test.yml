@@ -1,0 +1,23 @@
+version: "3.9"
+
+services:
+  postgres-test:
+    image: postgres:16-alpine
+    container_name: stargem-postgres-test
+    environment:
+      POSTGRES_USER: stargem_test
+      POSTGRES_PASSWORD: stargem_test
+      POSTGRES_DB: stargem_test
+    ports:
+      - "5433:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U stargem_test -d stargem_test"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+      - postgres_test_data:/var/lib/postgresql/data
+
+volumes:
+  postgres_test_data:

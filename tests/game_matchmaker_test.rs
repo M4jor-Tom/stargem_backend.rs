@@ -1,5 +1,5 @@
 use stargem_server::domain::GameMode;
-use stargem_server::game::{Matchmaker, MatchmakingTicket};
+use stargem_server::game::Matchmaker;
 use uuid::Uuid;
 
 #[test]
