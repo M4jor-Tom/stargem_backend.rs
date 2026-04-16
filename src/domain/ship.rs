@@ -1,6 +1,6 @@
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
-use chrono::{DateTime, Utc};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum DamageType {
@@ -296,7 +296,7 @@ impl Ship {
         let model = models.iter().find(|m| m.id == self.model_id);
         if let Some(model) = model {
             self.current_stats = model.base_stats.clone();
-            
+
             for &module_id in &self.passive_modules {
                 if let Some(module) = passive_modules.iter().find(|m| m.id == module_id) {
                     module.stat_modifiers.apply_to(&mut self.current_stats);

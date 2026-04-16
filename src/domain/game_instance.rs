@@ -1,6 +1,6 @@
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
-use chrono::{DateTime, Utc};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum GameMode {
@@ -25,7 +25,10 @@ impl GameMode {
     }
 
     pub fn allows_respawn(&self) -> bool {
-        matches!(self, GameMode::TeamDeathmatch | GameMode::FreeForAll | GameMode::WavesSurvival)
+        matches!(
+            self,
+            GameMode::TeamDeathmatch | GameMode::FreeForAll | GameMode::WavesSurvival
+        )
     }
 }
 
@@ -85,7 +88,10 @@ impl GameInstance {
     }
 
     pub fn remove_player(&mut self, player_id: Uuid) -> Result<(), GameInstanceError> {
-        let pos = self.player_ids.iter().position(|&id| id == player_id)
+        let pos = self
+            .player_ids
+            .iter()
+            .position(|&id| id == player_id)
             .ok_or(GameInstanceError::PlayerNotInGame)?;
         self.player_ids.remove(pos);
         Ok(())
@@ -100,16 +106,16 @@ impl GameInstance {
         }
         self.state = GameState::Starting;
         self.started_at = Some(Utc::now());
-        
+
         if matches!(self.mode, GameMode::TeamDeathmatch) {
             let team_count = 2;
             self.team_scores = Some(vec![0; team_count]);
         }
-        
+
         if matches!(self.mode, GameMode::WavesSurvival) {
             self.wave_number = Some(0);
         }
-        
+
         Ok(())
     }
 

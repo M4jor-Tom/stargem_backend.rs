@@ -1,70 +1,93 @@
+use crate::domain::*;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
-use crate::domain::*;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type")]
 pub enum ClientMessage {
     #[serde(rename = "auth_login")]
     AuthLogin { username: String, password: String },
-    
+
     #[serde(rename = "auth_register")]
-    AuthRegister { username: String, email: String, password: String },
-    
+    AuthRegister {
+        username: String,
+        email: String,
+        password: String,
+    },
+
     #[serde(rename = "ship_list")]
     ShipList,
-    
+
     #[serde(rename = "ship_create")]
     ShipCreate { model_id: Uuid, name: String },
-    
+
     #[serde(rename = "ship_equip_passive")]
-    ShipEquipPassive { ship_id: Uuid, module_id: Uuid, slot: usize },
-    
+    ShipEquipPassive {
+        ship_id: Uuid,
+        module_id: Uuid,
+        slot: usize,
+    },
+
     #[serde(rename = "ship_equip_active")]
-    ShipEquipActive { ship_id: Uuid, module_id: Uuid, slot: usize },
-    
+    ShipEquipActive {
+        ship_id: Uuid,
+        module_id: Uuid,
+        slot: usize,
+    },
+
     #[serde(rename = "ship_equip_weapon")]
     ShipEquipWeapon { ship_id: Uuid, weapon_id: Uuid },
-    
+
     #[serde(rename = "hangar_add")]
     HangarAdd { ship_id: Uuid },
-    
+
     #[serde(rename = "hangar_remove")]
     HangarRemove { ship_id: Uuid },
-    
+
     #[serde(rename = "hangar_select")]
     HangarSelect { index: usize },
-    
+
     #[serde(rename = "game_list")]
     GameList { mode: Option<GameMode> },
-    
+
     #[serde(rename = "game_create")]
-    GameCreate { mode: GameMode, name: String, max_players: usize },
-    
+    GameCreate {
+        mode: GameMode,
+        name: String,
+        max_players: usize,
+    },
+
     #[serde(rename = "game_join")]
     GameJoin { instance_id: Uuid },
-    
+
     #[serde(rename = "game_leave")]
     GameLeave { instance_id: Uuid },
-    
+
     #[serde(rename = "game_start")]
     GameStart { instance_id: Uuid },
-    
+
     #[serde(rename = "combat_fire")]
     CombatFire { target_id: Uuid, weapon_slot: usize },
-    
+
     #[serde(rename = "combat_missile")]
-    CombatMissile { target_id: Uuid, missile_slot: usize },
-    
+    CombatMissile {
+        target_id: Uuid,
+        missile_slot: usize,
+    },
+
     #[serde(rename = "combat_ability")]
     CombatAbility { ability_key: String },
-    
+
     #[serde(rename = "movement_update")]
-    MovementUpdate { position: Position, rotation: f32, velocity: Position },
-    
+    MovementUpdate {
+        position: Position,
+        rotation: f32,
+        velocity: Position,
+    },
+
     #[serde(rename = "station_dock")]
     StationDock { station_id: Uuid },
-    
+
     #[serde(rename = "station_undock")]
     StationUndock,
 }
@@ -74,64 +97,71 @@ pub enum ClientMessage {
 pub enum ServerMessage {
     #[serde(rename = "auth_success")]
     AuthSuccess { user_id: Uuid, username: String },
-    
+
     #[serde(rename = "auth_error")]
     AuthError { message: String },
-    
+
     #[serde(rename = "ship_list")]
     ShipList { ships: Vec<ShipInfo> },
-    
+
     #[serde(rename = "ship_created")]
     ShipCreated { ship: ShipInfo },
-    
+
     #[serde(rename = "ship_updated")]
     ShipUpdated { ship: ShipInfo },
-    
+
     #[serde(rename = "hangar_updated")]
     HangarUpdated { hangar: HangarInfo },
-    
+
     #[serde(rename = "game_list")]
     GameList { instances: Vec<GameInfo> },
-    
+
     #[serde(rename = "game_created")]
     GameCreated { instance: GameInfo },
-    
+
     #[serde(rename = "game_joined")]
     GameJoined { instance: GameInfo },
-    
+
     #[serde(rename = "game_left")]
     GameLeft { instance_id: Uuid },
-    
+
     #[serde(rename = "game_started")]
     GameStarted { instance_id: Uuid },
-    
+
     #[serde(rename = "game_ended")]
-    GameEnded { instance_id: Uuid, scores: Option<Vec<i32>> },
-    
+    GameEnded {
+        instance_id: Uuid,
+        scores: Option<Vec<i32>>,
+    },
+
     #[serde(rename = "player_joined")]
     PlayerJoined { instance_id: Uuid, player_id: Uuid },
-    
+
     #[serde(rename = "player_left")]
     PlayerLeft { instance_id: Uuid, player_id: Uuid },
-    
+
     #[serde(rename = "combat_event")]
     CombatEvent { event: CombatEventInfo },
-    
+
     #[serde(rename = "player_killed")]
     PlayerKilled { killer_id: Uuid, victim_id: Uuid },
-    
+
     #[serde(rename = "player_respawn")]
     PlayerRespawn { player_id: Uuid, ship_id: Uuid },
-    
+
     #[serde(rename = "wave_started")]
     WaveStarted { wave: u32 },
-    
+
     #[serde(rename = "wave_cleared")]
     WaveCleared { wave: u32 },
-    
+
     #[serde(rename = "player_update")]
-    PlayerUpdate { player_id: Uuid, position: Position, rotation: f32 },
-    
+    PlayerUpdate {
+        player_id: Uuid,
+        position: Position,
+        rotation: f32,
+    },
+
     #[serde(rename = "error")]
     Error { message: String },
 }

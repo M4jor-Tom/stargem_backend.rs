@@ -1,5 +1,5 @@
-use stargem_server::game::{CombatSystem, CombatError, SpecialAbilityManager};
-use stargem_server::domain::{Weapon, DamageType, WeaponSize, Ship};
+use stargem_server::domain::{DamageType, Ship, Weapon, WeaponSize};
+use stargem_server::game::{CombatError, CombatSystem, SpecialAbilityManager};
 
 #[test]
 fn test_combat_system_fire_weapon() {
@@ -16,12 +16,12 @@ fn test_combat_system_fire_weapon() {
         max_heat: 100.0,
         cooling_rate: 5.0,
     };
-    
+
     let weapon_id = combat.register_weapon(uuid::Uuid::new_v4(), &weapon);
-    
+
     let result = combat.fire_weapon(weapon_id);
     assert!(result.is_ok());
-    
+
     let shot = result.unwrap();
     assert_eq!(shot.damage, 50.0);
     assert_eq!(shot.damage_type, DamageType::Kinetic);
@@ -42,14 +42,14 @@ fn test_combat_system_overheat() {
         max_heat: 100.0,
         cooling_rate: 1.0,
     };
-    
+
     let weapon_id = combat.register_weapon(uuid::Uuid::new_v4(), &weapon);
-    
+
     combat.fire_weapon(weapon_id).unwrap();
     combat.fire_weapon(weapon_id).unwrap();
     combat.fire_weapon(weapon_id).unwrap();
     let result = combat.fire_weapon(weapon_id);
-    
+
     assert!(result.is_err());
     assert!(matches!(result.unwrap_err(), CombatError::WeaponOverheated));
 }
@@ -62,9 +62,9 @@ fn test_combat_system_apply_damage() {
         damage_type: DamageType::Thermic,
         heat_generated: 0.0,
     };
-    
+
     let result = CombatSystem::apply_damage(&mut ship, &shot);
-    
+
     assert_eq!(result.shield_damage, 30.0);
     assert!(!result.hull_damage);
 }
@@ -73,13 +73,13 @@ fn test_combat_system_apply_damage() {
 fn test_ability_manager_cloak() {
     let mut manager = SpecialAbilityManager::new();
     let ship_id = uuid::Uuid::new_v4();
-    
+
     manager.activate_cloak(ship_id);
-    
+
     assert!(manager.is_cloaked(ship_id));
-    
+
     manager.deactivate_cloak(ship_id);
-    
+
     assert!(!manager.is_cloaked(ship_id));
 }
 
@@ -87,12 +87,12 @@ fn test_ability_manager_cloak() {
 fn test_ability_manager_cloak_breaks_on_damage() {
     let mut manager = SpecialAbilityManager::new();
     let ship_id = uuid::Uuid::new_v4();
-    
+
     manager.activate_cloak(ship_id);
     assert!(manager.is_cloaked(ship_id));
-    
+
     let remaining = manager.handle_damage(ship_id, 50.0);
-    
+
     assert!(remaining.is_none());
     assert!(!manager.is_cloaked(ship_id));
 }
@@ -102,11 +102,11 @@ fn test_ability_manager_command_shield() {
     let mut manager = SpecialAbilityManager::new();
     let ship_id = uuid::Uuid::new_v4();
     let max_energy = 200.0;
-    
+
     manager.activate_command_shield(ship_id, max_energy);
-    
+
     let remaining = manager.handle_damage(ship_id, 100.0);
-    
+
     assert!(remaining.is_some());
     assert_eq!(remaining.unwrap(), 0.0);
 }

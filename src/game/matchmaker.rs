@@ -1,8 +1,8 @@
-use uuid::Uuid;
-use std::collections::VecDeque;
 use crate::domain::GameMode;
 use crate::game::GameInstanceManager;
 use crate::AppError;
+use std::collections::VecDeque;
+use uuid::Uuid;
 
 pub struct Matchmaker {
     queue: VecDeque<MatchmakingTicket>,
@@ -39,10 +39,11 @@ impl Matchmaker {
         }
 
         let mut matched_players = Vec::with_capacity(self.max_players);
-        let mut mode_counts: std::collections::HashMap<GameMode, usize> = std::collections::HashMap::new();
+        let mut mode_counts: std::collections::HashMap<GameMode, usize> =
+            std::collections::HashMap::new();
 
         let mut remaining: VecDeque<MatchmakingTicket> = VecDeque::new();
-        
+
         while let Some(ticket) = self.queue.pop_front() {
             if matched_players.len() >= self.max_players {
                 remaining.push_back(ticket);
@@ -50,7 +51,7 @@ impl Matchmaker {
             }
 
             let mode_count = mode_counts.entry(ticket.preferred_mode).or_insert(0);
-            
+
             if *mode_count == 0 || matched_players.len() < self.min_players {
                 matched_players.push(ticket.player_id);
                 *mode_count += 1;
@@ -60,7 +61,7 @@ impl Matchmaker {
         }
 
         self.queue = remaining;
-        
+
         if matched_players.len() >= self.min_players {
             Some(matched_players)
         } else {

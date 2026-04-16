@@ -1,7 +1,7 @@
+use crate::domain::{CombatEvent, CombatEventType, DamageResult, DamageType, Ship, Weapon};
+use chrono::{DateTime, Utc};
 use std::collections::HashMap;
 use uuid::Uuid;
-use chrono::{DateTime, Utc};
-use crate::domain::{Ship, DamageType, DamageResult, Weapon, CombatEvent, CombatEventType};
 
 pub struct CombatSystem {
     weapons: HashMap<Uuid, WeaponState>,
@@ -32,40 +32,44 @@ impl CombatSystem {
     }
 
     pub fn fire_weapon(&mut self, weapon_id: Uuid) -> Result<WeaponShot, CombatError> {
-        let weapon_state = self.weapons.get_mut(&weapon_id)
+        let weapon_state = self
+            .weapons
+            .get_mut(&weapon_id)
             .ok_or(CombatError::WeaponNotFound)?;
-        
+
         let now = Utc::now();
-        
+
         if weapon_state.overheated {
-            let cooldown_time = weapon_state.last_fire_time
+            let cooldown_time = weapon_state
+                .last_fire_time
                 .map(|t| t + chrono::Duration::seconds(5))
                 .unwrap_or(now);
-            
+
             if now < cooldown_time {
                 return Err(CombatError::WeaponOverheated);
             }
             weapon_state.overheated = false;
             weapon_state.current_heat = 0.0;
         }
-        
-        let time_since_last = weapon_state.last_fire_time
+
+        let time_since_last = weapon_state
+            .last_fire_time
             .map(|t| (now - t).num_milliseconds() as f32 / 1000.0)
             .unwrap_or(weapon_state.weapon.fire_rate);
-        
+
         let cooldown_ready = time_since_last >= weapon_state.weapon.fire_rate;
-        
+
         if !cooldown_ready {
             return Err(CombatError::WeaponOnCooldown);
         }
-        
+
         weapon_state.current_heat += weapon_state.weapon.heat_per_shot;
         weapon_state.last_fire_time = Some(now);
-        
+
         if weapon_state.current_heat >= weapon_state.weapon.max_heat {
             weapon_state.overheated = true;
         }
-        
+
         Ok(WeaponShot {
             damage: weapon_state.weapon.damage,
             damage_type: weapon_state.weapon.damage_type,
@@ -78,8 +82,9 @@ impl CombatSystem {
             if weapon_state.overheated {
                 if let Some(last_time) = weapon_state.last_fire_time {
                     let elapsed = (Utc::now() - last_time).num_seconds() as f32;
-                    let cooldown_time = 5.0 + (weapon_state.current_heat / weapon_state.weapon.heat_per_shot) * 2.0;
-                    
+                    let cooldown_time =
+                        5.0 + (weapon_state.current_heat / weapon_state.weapon.heat_per_shot) * 2.0;
+
                     if elapsed >= cooldown_time {
                         weapon_state.overheated = false;
                         weapon_state.current_heat = 0.0;
@@ -87,14 +92,17 @@ impl CombatSystem {
                 }
             } else {
                 let cooling_time = weapon_state.current_heat / weapon_state.weapon.cooling_rate;
-                let time_since_fire = weapon_state.last_fire_time
+                let time_since_fire = weapon_state
+                    .last_fire_time
                     .map(|t| (Utc::now() - t).num_milliseconds() as f32 / 1000.0)
                     .unwrap_or(0.0);
-                
+
                 if time_since_fire >= cooling_time {
                     weapon_state.current_heat = 0.0;
                 } else {
-                    weapon_state.current_heat = (weapon_state.current_heat - weapon_state.weapon.cooling_rate * time_since_fire).max(0.0);
+                    weapon_state.current_heat = (weapon_state.current_heat
+                        - weapon_state.weapon.cooling_rate * time_since_fire)
+                        .max(0.0);
                 }
             }
         }
@@ -232,9 +240,8 @@ impl SpecialAbilityManager {
 
     pub fn deactivate_cloak(&mut self, ship_id: Uuid) {
         self.cloaked_ships.remove(&ship_id);
-        self.active_abilities.retain(|_, a| {
-            !(a.ship_id == ship_id && matches!(a.ability_type, AbilityType::Cloak))
-        });
+        self.active_abilities
+            .retain(|_, a| !(a.ship_id == ship_id && matches!(a.ability_type, AbilityType::Cloak)));
     }
 
     pub fn activate_overclock(&mut self, ship_id: Uuid) {
@@ -322,11 +329,13 @@ impl SpecialAbilityManager {
             let elapsed = (now - ability.start_time).num_milliseconds() as i64;
             elapsed < ability.duration_ms
         });
-        
+
         for ship_id in self.cloaked_ships.clone() {
-            if !self.active_abilities.iter().any(|(_, a)| {
-                a.ship_id == ship_id && matches!(a.ability_type, AbilityType::Cloak)
-            }) {
+            if !self
+                .active_abilities
+                .iter()
+                .any(|(_, a)| a.ship_id == ship_id && matches!(a.ability_type, AbilityType::Cloak))
+            {
                 self.cloaked_ships.remove(&ship_id);
             }
         }
@@ -339,11 +348,11 @@ impl SpecialAbilityManager {
                 return Some(0.0);
             }
         }
-        
+
         if self.cloaked_ships.contains(&ship_id) {
             self.deactivate_cloak(ship_id);
         }
-        
+
         None
     }
 }

@@ -1,9 +1,9 @@
+use crate::domain::{GameInstance, PlayerSession};
+use crate::network::{ClientMessage, ServerMessage};
 use dashmap::DashMap;
 use parking_lot::RwLock;
 use std::sync::Arc;
 use uuid::Uuid;
-use crate::domain::{GameInstance, PlayerSession};
-use crate::network::{ClientMessage, ServerMessage};
 
 pub struct ClientSession {
     pub id: Uuid,
@@ -67,9 +67,9 @@ impl SessionManager {
     }
 
     pub fn get_session_by_user(&self, user_id: Uuid) -> Option<Arc<RwLock<ClientSession>>> {
-        self.user_to_session.get(&user_id).and_then(|sid| {
-            self.get_session(*sid)
-        })
+        self.user_to_session
+            .get(&user_id)
+            .and_then(|sid| self.get_session(*sid))
     }
 
     pub fn set_user_session(&self, user_id: Uuid, session_id: Uuid) {
@@ -80,11 +80,16 @@ impl SessionManager {
         self.sessions.len()
     }
 
-    pub fn broadcast_to_instance(&self, instance_id: Uuid, msg: ServerMessage, except: Option<Uuid>) {
+    pub fn broadcast_to_instance(
+        &self,
+        instance_id: Uuid,
+        msg: ServerMessage,
+        except: Option<Uuid>,
+    ) {
         for session in self.sessions.iter() {
             let sid = session.key().clone();
             let should_send = except.map_or(true, |e| sid != e);
-            
+
             if should_send {
                 let inst_id = session.read().game_instance_id;
                 if inst_id == Some(instance_id) {

@@ -1,7 +1,7 @@
+use stargem_server::db::{create_pool, PostgresShipRepository, PostgresUserRepository};
+use stargem_server::network::GameServer;
 use std::sync::Arc;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
-use stargem_server::network::GameServer;
-use stargem_server::db::{create_pool, PostgresUserRepository, PostgresShipRepository};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {

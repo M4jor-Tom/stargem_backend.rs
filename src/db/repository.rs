@@ -1,8 +1,8 @@
+use crate::domain::*;
+use crate::error::AppError;
 use async_trait::async_trait;
 use sqlx::PgPool;
 use uuid::Uuid;
-use crate::domain::*;
-use crate::error::AppError;
 
 #[async_trait]
 pub trait UserRepository: Send + Sync {
@@ -46,32 +46,26 @@ impl UserRepository for PostgresUserRepository {
     }
 
     async fn find_by_id(&self, id: Uuid) -> Result<Option<User>, AppError> {
-        let row = sqlx::query_as::<_, UserRow>(
-            "SELECT * FROM users WHERE id = $1"
-        )
-        .bind(id)
-        .fetch_optional(&self.pool)
-        .await?;
+        let row = sqlx::query_as::<_, UserRow>("SELECT * FROM users WHERE id = $1")
+            .bind(id)
+            .fetch_optional(&self.pool)
+            .await?;
         Ok(row.map(|r| r.into()))
     }
 
     async fn find_by_username(&self, username: &str) -> Result<Option<User>, AppError> {
-        let row = sqlx::query_as::<_, UserRow>(
-            "SELECT * FROM users WHERE username = $1"
-        )
-        .bind(username)
-        .fetch_optional(&self.pool)
-        .await?;
+        let row = sqlx::query_as::<_, UserRow>("SELECT * FROM users WHERE username = $1")
+            .bind(username)
+            .fetch_optional(&self.pool)
+            .await?;
         Ok(row.map(|r| r.into()))
     }
 
     async fn find_by_email(&self, email: &str) -> Result<Option<User>, AppError> {
-        let row = sqlx::query_as::<_, UserRow>(
-            "SELECT * FROM users WHERE email = $1"
-        )
-        .bind(email)
-        .fetch_optional(&self.pool)
-        .await?;
+        let row = sqlx::query_as::<_, UserRow>("SELECT * FROM users WHERE email = $1")
+            .bind(email)
+            .fetch_optional(&self.pool)
+            .await?;
         Ok(row.map(|r| r.into()))
     }
 
@@ -95,13 +89,11 @@ impl UserRepository for PostgresUserRepository {
     }
 
     async fn update_credits(&self, user_id: Uuid, delta: i64) -> Result<(), AppError> {
-        sqlx::query(
-            "UPDATE users SET credits = credits + $2 WHERE id = $1"
-        )
-        .bind(user_id)
-        .bind(delta)
-        .execute(&self.pool)
-        .await?;
+        sqlx::query("UPDATE users SET credits = credits + $2 WHERE id = $1")
+            .bind(user_id)
+            .bind(delta)
+            .execute(&self.pool)
+            .await?;
         Ok(())
     }
 }
@@ -217,18 +209,16 @@ impl ShipRepository for PostgresShipRepository {
     }
 
     async fn find_by_id(&self, id: Uuid) -> Result<Option<Ship>, AppError> {
-        let row = sqlx::query_as::<_, ShipRow>(
-            "SELECT * FROM ships WHERE id = $1"
-        )
-        .bind(id)
-        .fetch_optional(&self.pool)
-        .await?;
+        let row = sqlx::query_as::<_, ShipRow>("SELECT * FROM ships WHERE id = $1")
+            .bind(id)
+            .fetch_optional(&self.pool)
+            .await?;
         Ok(row.map(|r| r.into()))
     }
 
     async fn find_by_user(&self, user_id: Uuid) -> Result<Vec<Ship>, AppError> {
         let rows = sqlx::query_as::<_, ShipRow>(
-            "SELECT * FROM ships WHERE user_id = $1 ORDER BY created_at"
+            "SELECT * FROM ships WHERE user_id = $1 ORDER BY created_at",
         )
         .bind(user_id)
         .fetch_all(&self.pool)

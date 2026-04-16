@@ -1,6 +1,6 @@
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
-use chrono::{DateTime, Utc};
 
 use super::ship::Ship;
 
@@ -59,10 +59,13 @@ impl Hangar {
     }
 
     pub fn remove_ship(&mut self, ship_id: Uuid) -> Result<(), HangarError> {
-        let pos = self.ship_ids.iter().position(|&id| id == ship_id)
+        let pos = self
+            .ship_ids
+            .iter()
+            .position(|&id| id == ship_id)
             .ok_or(HangarError::ShipNotInHangar)?;
         self.ship_ids.remove(pos);
-        
+
         if let Some(idx) = self.selected_ship_index {
             if idx >= self.ship_ids.len() {
                 self.selected_ship_index = None;
@@ -122,7 +125,11 @@ impl Position {
 
 impl Default for Position {
     fn default() -> Self {
-        Self { x: 0.0, y: 0.0, z: 0.0 }
+        Self {
+            x: 0.0,
+            y: 0.0,
+            z: 0.0,
+        }
     }
 }
 

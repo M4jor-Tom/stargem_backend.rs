@@ -33,9 +33,9 @@ fn test_ship_apply_damage_electromagnetic() {
     let mut ship = create_test_ship();
     ship.current_shield = 100.0;
     ship.current_armor = 100.0;
-    
+
     let result = ship.apply_damage(100.0, DamageType::Electromagnetic);
-    
+
     assert_eq!(result.shield_damage, 100.0);
     assert_eq!(ship.current_shield, 0.0);
     assert!(!result.hull_damage);
@@ -46,9 +46,9 @@ fn test_ship_apply_damage_overflow_to_armor() {
     let mut ship = create_test_ship();
     ship.current_shield = 50.0;
     ship.current_armor = 100.0;
-    
+
     let result = ship.apply_damage(100.0, DamageType::Electromagnetic);
-    
+
     assert_eq!(ship.current_shield, 0.0);
     assert!(result.armor_damage > 0.0);
     assert!(!result.hull_damage);
@@ -59,9 +59,9 @@ fn test_ship_apply_damage_kinetic() {
     let mut ship = create_test_ship();
     ship.current_shield = 100.0;
     ship.current_armor = 100.0;
-    
+
     let result = ship.apply_damage(100.0, DamageType::Kinetic);
-    
+
     assert_eq!(result.shield_damage, 50.0);
     assert_eq!(ship.current_shield, 50.0);
     assert!(!result.hull_damage);
@@ -71,9 +71,9 @@ fn test_ship_apply_damage_kinetic() {
 fn test_ship_destroyed() {
     let mut ship = create_test_ship();
     ship.current_armor = 50.0;
-    
+
     let result = ship.apply_damage(500.0, DamageType::Kinetic);
-    
+
     assert!(result.hull_damage);
     assert!(!ship.is_alive());
 }

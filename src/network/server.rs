@@ -1,12 +1,12 @@
-use std::sync::Arc;
-use tokio::net::{TcpListener, TcpStream};
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
-use tokio::sync::mpsc;
-use bytes::{Bytes, Buf};
-use tracing::{info, error, debug};
-use uuid::Uuid;
-use crate::network::{SessionManager, ClientSession, ServerMessage, ClientMessage};
+use crate::network::{ClientMessage, ClientSession, ServerMessage, SessionManager};
 use crate::AppError;
+use bytes::{Buf, Bytes};
+use std::sync::Arc;
+use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use tokio::net::{TcpListener, TcpStream};
+use tokio::sync::mpsc;
+use tracing::{debug, error, info};
+use uuid::Uuid;
 
 pub struct GameServer {
     session_manager: Arc<SessionManager>,
@@ -48,14 +48,17 @@ impl GameServer {
     }
 }
 
-async fn handle_connection(socket: TcpStream, session_manager: Arc<SessionManager>) -> Result<(), AppError> {
+async fn handle_connection(
+    socket: TcpStream,
+    session_manager: Arc<SessionManager>,
+) -> Result<(), AppError> {
     let (mut read, mut write) = socket.into_split();
     let (tx, mut rx) = mpsc::channel::<ServerMessage>(100);
-    
+
     let session = Arc::new(parking_lot::RwLock::new(ClientSession::new(tx)));
     session_manager.add_session(session.clone());
     let session_id = session.read().id;
-    
+
     let sm_reader = session_manager.clone();
 
     let reader_handle = tokio::spawn(async move {
@@ -92,35 +95,44 @@ async fn handle_connection(socket: TcpStream, session_manager: Arc<SessionManage
     Ok(())
 }
 
-async fn process_message(session_manager: &SessionManager, session_id: Uuid, data: &Bytes) -> Result<(), AppError> {
+async fn process_message(
+    session_manager: &SessionManager,
+    session_id: Uuid,
+    data: &Bytes,
+) -> Result<(), AppError> {
     let mut buf = data.clone();
-    
+
     while buf.len() >= 4 {
         let msg_len = buf.get_u32() as usize;
         if buf.len() < msg_len {
             break;
         }
-        
+
         let msg_data = buf.slice(..msg_len);
         buf.advance(msg_len);
-        
+
         if let Ok(msg) = serde_json::from_slice::<ClientMessage>(msg_data.as_ref()) {
             debug!("Received: {:?}", msg);
             handle_client_message(session_manager, session_id, msg).await?;
         }
     }
-    
+
     Ok(())
 }
 
-async fn handle_client_message(session_manager: &SessionManager, session_id: Uuid, msg: ClientMessage) -> Result<(), AppError> {
+async fn handle_client_message(
+    session_manager: &SessionManager,
+    session_id: Uuid,
+    msg: ClientMessage,
+) -> Result<(), AppError> {
     let (is_auth, sender) = {
-        let session = session_manager.get_session(session_id)
+        let session = session_manager
+            .get_session(session_id)
             .ok_or_else(|| AppError::Network("Session not found".into()))?;
         let guard = session.read();
         (guard.is_authenticated(), guard.get_sender())
     };
-    
+
     match msg {
         ClientMessage::AuthLogin { .. } => {
             info!("Auth login received");
@@ -130,13 +142,15 @@ async fn handle_client_message(session_manager: &SessionManager, session_id: Uui
         }
         _ => {
             if !is_auth {
-                let _ = sender.send(ServerMessage::Error {
-                    message: "Not authenticated".into(),
-                }).await;
+                let _ = sender
+                    .send(ServerMessage::Error {
+                        message: "Not authenticated".into(),
+                    })
+                    .await;
             }
         }
     }
-    
+
     Ok(())
 }
 
