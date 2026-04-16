@@ -256,30 +256,25 @@ impl Ship {
     }
 
     pub fn apply_damage(&mut self, damage: f32, damage_type: DamageType) -> DamageResult {
-        let shield_dmg = damage * damage_type.effectiveness_against_shield();
-        let armor_dmg = damage * damage_type.effectiveness_against_armor();
+        let shield_effective = damage_type.effectiveness_against_shield();
+        let armor_effective = damage_type.effectiveness_against_armor();
 
-        let mut remaining_damage = 0.0;
-        let mut shield_damage = 0.0;
-        let mut armor_damage = 0.0;
+        let shield_dmg = damage * shield_effective;
 
-        if shield_dmg > self.current_shield {
-            remaining_damage = shield_dmg - self.current_shield;
-            shield_damage = self.current_shield;
+        let (shield_damage, armor_damage) = if shield_dmg > self.current_shield {
+            let shield_dmg_dealt = self.current_shield;
             self.current_shield = 0.0;
-        } else {
-            shield_damage = shield_dmg;
-            self.current_shield -= shield_dmg;
-        }
 
-        if remaining_damage > 0.0 {
-            let effective_armor_dmg = remaining_damage * damage_type.effectiveness_against_armor();
-            armor_damage = effective_armor_dmg.min(self.current_armor);
-            self.current_armor -= armor_damage;
-        } else if armor_dmg > 0.0 && self.current_shield <= 0.0 {
-            armor_damage = armor_dmg.min(self.current_armor);
-            self.current_armor -= armor_damage;
-        }
+            let remaining = shield_dmg - self.current_shield;
+            let effective_dmg = remaining * armor_effective;
+            let armor_dmg_dealt = effective_dmg.min(self.current_armor);
+            self.current_armor -= armor_dmg_dealt;
+
+            (shield_dmg_dealt, armor_dmg_dealt)
+        } else {
+            self.current_shield -= shield_dmg;
+            (shield_dmg, 0.0)
+        };
 
         DamageResult {
             shield_damage,

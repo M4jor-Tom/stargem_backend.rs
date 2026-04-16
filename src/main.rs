@@ -1,5 +1,6 @@
-use stargem_server::db::{create_pool, PostgresShipRepository, PostgresUserRepository};
-use stargem_server::network::GameServer;
+use stargem_server::api::GameService;
+use stargem_server::db::{create_pool, PostgresHangarRepository, PostgresShipRepository, PostgresUserRepository};
+use stargem_server::network::{GameServer, SessionManager};
 use std::sync::Arc;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
@@ -18,11 +19,19 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let pool = create_pool(&database_url).await?;
     tracing::info!("Connected to database");
 
-    let _user_repo = Arc::new(PostgresUserRepository::new(pool.clone()));
-    let _ship_repo = Arc::new(PostgresShipRepository::new(pool.clone()));
+    let user_repo = Arc::new(PostgresUserRepository::new(pool.clone()));
+    let ship_repo = Arc::new(PostgresShipRepository::new(pool.clone()));
+    let hangar_repo = Arc::new(PostgresHangarRepository::new(pool.clone()));
+    let session_manager = Arc::new(SessionManager::new());
 
-    let server = GameServer::new("0.0.0.0:8080".into());
-    let _session_manager = server.session_manager();
+    let game_service = Arc::new(GameService::new(
+        user_repo,
+        ship_repo,
+        hangar_repo,
+        session_manager.clone(),
+    ));
+
+    let server = GameServer::new("0.0.0.0:8080".into(), game_service);
 
     tracing::info!("Starting Stargem server on 0.0.0.0:8080");
     server.start().await?;

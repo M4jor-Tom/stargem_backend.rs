@@ -1,6 +1,5 @@
-use crate::domain::{GameInstance, GameMode, GameState, PlayerSession, Position};
-use crate::game::{CombatError, CombatSystem, SpecialAbilityManager};
-use crate::network::SessionManager;
+use crate::domain::{GameInstance, GameMode, GameState, PlayerSession};
+use crate::game::{CombatSystem, SpecialAbilityManager};
 use chrono::{DateTime, Utc};
 use parking_lot::RwLock;
 use std::collections::HashMap;
@@ -12,17 +11,15 @@ pub struct GameInstanceManager {
     instance_players: HashMap<Uuid, HashMap<Uuid, PlayerState>>,
     combat_systems: HashMap<Uuid, CombatSystem>,
     ability_managers: HashMap<Uuid, SpecialAbilityManager>,
-    session_manager: Arc<SessionManager>,
 }
 
 impl GameInstanceManager {
-    pub fn new(session_manager: Arc<SessionManager>) -> Self {
+    pub fn new() -> Self {
         Self {
             instances: HashMap::new(),
             instance_players: HashMap::new(),
             combat_systems: HashMap::new(),
             ability_managers: HashMap::new(),
-            session_manager,
         }
     }
 

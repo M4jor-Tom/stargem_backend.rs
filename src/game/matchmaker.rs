@@ -1,6 +1,4 @@
 use crate::domain::GameMode;
-use crate::game::GameInstanceManager;
-use crate::AppError;
 use std::collections::VecDeque;
 use uuid::Uuid;
 
@@ -38,22 +36,22 @@ impl Matchmaker {
             return None;
         }
 
-        let mut matched_players = Vec::with_capacity(self.max_players);
+        let mut matched_tickets: VecDeque<MatchmakingTicket> = VecDeque::new();
         let mut mode_counts: std::collections::HashMap<GameMode, usize> =
             std::collections::HashMap::new();
 
         let mut remaining: VecDeque<MatchmakingTicket> = VecDeque::new();
 
         while let Some(ticket) = self.queue.pop_front() {
-            if matched_players.len() >= self.max_players {
+            if matched_tickets.len() >= self.max_players {
                 remaining.push_back(ticket);
                 continue;
             }
 
             let mode_count = mode_counts.entry(ticket.preferred_mode).or_insert(0);
 
-            if *mode_count == 0 || matched_players.len() < self.min_players {
-                matched_players.push(ticket.player_id);
+            if *mode_count == 0 || matched_tickets.len() < self.min_players {
+                matched_tickets.push_back(ticket);
                 *mode_count += 1;
             } else {
                 remaining.push_back(ticket);
@@ -62,15 +60,11 @@ impl Matchmaker {
 
         self.queue = remaining;
 
-        if matched_players.len() >= self.min_players {
-            Some(matched_players)
+        if matched_tickets.len() >= self.min_players {
+            Some(matched_tickets.into_iter().map(|t| t.player_id).collect())
         } else {
-            for player_id in matched_players {
-                self.queue.push_back(MatchmakingTicket {
-                    player_id,
-                    preferred_mode: GameMode::TeamDeathmatch,
-                    entered_at: chrono::Utc::now(),
-                });
+            for ticket in matched_tickets {
+                self.queue.push_back(ticket);
             }
             None
         }

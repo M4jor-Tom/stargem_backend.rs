@@ -2,7 +2,6 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use super::ship::Ship;
 
 pub const MAX_HANGAR_SIZE: usize = 4;
 

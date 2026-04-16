@@ -5,14 +5,12 @@ use uuid::Uuid;
 
 pub struct CombatSystem {
     weapons: HashMap<Uuid, WeaponState>,
-    cooldowns: HashMap<(Uuid, String), DateTime<Utc>>,
 }
 
 impl CombatSystem {
     pub fn new() -> Self {
         Self {
             weapons: HashMap::new(),
-            cooldowns: HashMap::new(),
         }
     }
 
@@ -78,10 +76,11 @@ impl CombatSystem {
     }
 
     pub fn update_weapon_cooldowns(&mut self) {
+        let now = Utc::now();
         for weapon_state in self.weapons.values_mut() {
             if weapon_state.overheated {
                 if let Some(last_time) = weapon_state.last_fire_time {
-                    let elapsed = (Utc::now() - last_time).num_seconds() as f32;
+                    let elapsed = (now - last_time).num_seconds() as f32;
                     let cooldown_time =
                         5.0 + (weapon_state.current_heat / weapon_state.weapon.heat_per_shot) * 2.0;
 
@@ -90,20 +89,11 @@ impl CombatSystem {
                         weapon_state.current_heat = 0.0;
                     }
                 }
-            } else {
-                let cooling_time = weapon_state.current_heat / weapon_state.weapon.cooling_rate;
-                let time_since_fire = weapon_state
-                    .last_fire_time
-                    .map(|t| (Utc::now() - t).num_milliseconds() as f32 / 1000.0)
-                    .unwrap_or(0.0);
-
-                if time_since_fire >= cooling_time {
-                    weapon_state.current_heat = 0.0;
-                } else {
-                    weapon_state.current_heat = (weapon_state.current_heat
-                        - weapon_state.weapon.cooling_rate * time_since_fire)
-                        .max(0.0);
-                }
+            } else if weapon_state.current_heat > 0.0 {
+                let last_update = weapon_state.last_fire_time.unwrap_or(now);
+                let elapsed = (now - last_update).num_milliseconds() as f32 / 1000.0;
+                let heat_dissipated = weapon_state.weapon.cooling_rate * elapsed;
+                weapon_state.current_heat = (weapon_state.current_heat - heat_dissipated).max(0.0);
             }
         }
     }

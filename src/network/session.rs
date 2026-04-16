@@ -1,8 +1,7 @@
-use crate::domain::{GameInstance, PlayerSession};
-use crate::network::{ClientMessage, ServerMessage};
+use crate::network::ServerMessage;
 use dashmap::DashMap;
-use parking_lot::RwLock;
 use std::sync::Arc;
+use tokio::sync::RwLock;
 use uuid::Uuid;
 
 pub struct ClientSession {
@@ -47,14 +46,14 @@ impl SessionManager {
     }
 
     pub fn add_session(&self, session: Arc<RwLock<ClientSession>>) {
-        let id = session.read().id;
+        let id = session.blocking_read().id;
         self.sessions.insert(id, session.clone());
     }
 
     pub fn remove_session(&self, session_id: Uuid) -> Option<Arc<RwLock<ClientSession>>> {
         let session = self.sessions.remove(&session_id);
         if let Some((_, s)) = &session {
-            let user_id = s.read().user_id;
+            let user_id = s.blocking_read().user_id;
             if let Some(uid) = user_id {
                 self.user_to_session.remove(&uid);
             }
@@ -91,9 +90,9 @@ impl SessionManager {
             let should_send = except.map_or(true, |e| sid != e);
 
             if should_send {
-                let inst_id = session.read().game_instance_id;
+                let inst_id = session.blocking_read().game_instance_id;
                 if inst_id == Some(instance_id) {
-                    let _ = session.read().sender.try_send(msg.clone());
+                    let _ = session.blocking_read().sender.try_send(msg.clone());
                 }
             }
         }
@@ -101,7 +100,7 @@ impl SessionManager {
 
     pub fn broadcast_all(&self, msg: ServerMessage) {
         for session in self.sessions.iter() {
-            let _ = session.read().sender.try_send(msg.clone());
+            let _ = session.blocking_read().sender.try_send(msg.clone());
         }
     }
 }

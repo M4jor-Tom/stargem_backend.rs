@@ -259,3 +259,85 @@ impl ShipRepository for PostgresShipRepository {
         Ok(())
     }
 }
+
+#[async_trait]
+pub trait HangarRepository: Send + Sync {
+    async fn get(&self, user_id: Uuid) -> Result<Option<Hangar>, AppError>;
+    async fn add_ship(&self, user_id: Uuid, ship_id: Uuid) -> Result<(), AppError>;
+    async fn remove_ship(&self, user_id: Uuid, ship_id: Uuid) -> Result<(), AppError>;
+    async fn select_ship(&self, user_id: Uuid, index: usize) -> Result<(), AppError>;
+}
+
+pub struct PostgresHangarRepository {
+    pool: PgPool,
+}
+
+impl PostgresHangarRepository {
+    pub fn new(pool: PgPool) -> Self {
+        Self { pool }
+    }
+}
+
+#[async_trait]
+impl HangarRepository for PostgresHangarRepository {
+    async fn get(&self, user_id: Uuid) -> Result<Option<Hangar>, AppError> {
+        let row = sqlx::query_as::<_, HangarRow>(
+            "SELECT user_id, ship_ids, selected_ship_index FROM hangars WHERE user_id = $1"
+        )
+        .bind(user_id)
+        .fetch_optional(&self.pool)
+        .await?;
+        Ok(row.map(|r| Hangar {
+            user_id: r.user_id,
+            ship_ids: r.ship_ids,
+            selected_ship_index: r.selected_ship_index.map(|i| i as usize),
+        }))
+    }
+
+    async fn add_ship(&self, user_id: Uuid, ship_id: Uuid) -> Result<(), AppError> {
+        sqlx::query(
+            r#"
+            INSERT INTO hangars (user_id, ship_ids, selected_ship_index)
+            VALUES ($1, $2::uuid[], 0)
+            ON CONFLICT (user_id) DO UPDATE SET ship_ids = array_append(hangars.ship_ids, $2)
+            "#
+        )
+        .bind(user_id)
+        .bind(ship_id)
+        .execute(&self.pool)
+        .await?;
+        Ok(())
+    }
+
+    async fn remove_ship(&self, user_id: Uuid, ship_id: Uuid) -> Result<(), AppError> {
+        sqlx::query(
+            r#"
+            UPDATE hangars 
+            SET ship_ids = array_remove(hangars.ship_ids, $2),
+                selected_ship_index = NULL
+            WHERE user_id = $1
+            "#
+        )
+        .bind(user_id)
+        .bind(ship_id)
+        .execute(&self.pool)
+        .await?;
+        Ok(())
+    }
+
+    async fn select_ship(&self, user_id: Uuid, index: usize) -> Result<(), AppError> {
+        sqlx::query("UPDATE hangars SET selected_ship_index = $2 WHERE user_id = $1")
+            .bind(user_id)
+            .bind(index as i32)
+            .execute(&self.pool)
+            .await?;
+        Ok(())
+    }
+}
+
+#[derive(sqlx::FromRow)]
+struct HangarRow {
+    user_id: Uuid,
+    ship_ids: Vec<Uuid>,
+    selected_ship_index: Option<i32>,
+}

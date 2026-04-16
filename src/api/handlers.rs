@@ -1,5 +1,5 @@
-use crate::db::{ShipRepository, UserRepository};
-use crate::domain::{GameMode, Ship, User};
+use crate::db::{HangarRepository, ShipRepository, UserRepository};
+use crate::domain::{Ship, User};
 use crate::error::AppError;
 use crate::network::session::SessionManager;
 use crate::network::{ClientMessage, ServerMessage, ShipInfo};
@@ -9,6 +9,7 @@ use uuid::Uuid;
 pub struct GameService {
     user_repo: Arc<dyn UserRepository>,
     ship_repo: Arc<dyn ShipRepository>,
+    hangar_repo: Arc<dyn HangarRepository>,
     session_manager: Arc<SessionManager>,
 }
 
@@ -16,11 +17,13 @@ impl GameService {
     pub fn new(
         user_repo: Arc<dyn UserRepository>,
         ship_repo: Arc<dyn ShipRepository>,
+        hangar_repo: Arc<dyn HangarRepository>,
         session_manager: Arc<SessionManager>,
     ) -> Self {
         Self {
             user_repo,
             ship_repo,
+            hangar_repo,
             session_manager,
         }
     }
@@ -75,7 +78,7 @@ impl GameService {
         }
 
         if let Some(session) = self.session_manager.get_session(session_id) {
-            session.write().user_id = Some(user.id);
+            session.blocking_write().user_id = Some(user.id);
         }
 
         Ok(Some(ServerMessage::AuthSuccess {
@@ -108,7 +111,7 @@ impl GameService {
         self.user_repo.create(&user).await?;
 
         if let Some(session) = self.session_manager.get_session(session_id) {
-            session.write().user_id = Some(user.id);
+            session.blocking_write().user_id = Some(user.id);
         }
 
         Ok(Some(ServerMessage::AuthSuccess {
@@ -160,7 +163,21 @@ impl GameService {
         session_id: Uuid,
         ship_id: Uuid,
     ) -> Result<Option<ServerMessage>, AppError> {
-        Ok(None)
+        let user_id = self.get_session_user(session_id)?;
+        
+        let ship = self.ship_repo.find_by_id(ship_id).await?
+            .ok_or_else(|| AppError::NotFound("Ship not found".into()))?;
+        
+        if ship.user_id != user_id {
+            return Err(AppError::Unauthorized("Ship does not belong to you".into()));
+        }
+        
+        self.hangar_repo.add_ship(user_id, ship_id).await?;
+        
+        let hangar = self.hangar_repo.get(user_id).await?
+            .ok_or_else(|| AppError::Internal("Failed to get hangar".into()))?;
+        
+        Ok(Some(ServerMessage::HangarUpdated { hangar: hangar.into() }))
     }
 
     async fn handle_hangar_remove(
@@ -168,7 +185,14 @@ impl GameService {
         session_id: Uuid,
         ship_id: Uuid,
     ) -> Result<Option<ServerMessage>, AppError> {
-        Ok(None)
+        let user_id = self.get_session_user(session_id)?;
+        
+        self.hangar_repo.remove_ship(user_id, ship_id).await?;
+        
+        let hangar = self.hangar_repo.get(user_id).await?
+            .ok_or_else(|| AppError::Internal("Failed to get hangar".into()))?;
+        
+        Ok(Some(ServerMessage::HangarUpdated { hangar: hangar.into() }))
     }
 
     fn get_session_user(&self, session_id: Uuid) -> Result<Uuid, AppError> {
@@ -176,7 +200,7 @@ impl GameService {
             .session_manager
             .get_session(session_id)
             .ok_or_else(|| AppError::Unauthorized("Session not found".into()))?;
-        let guard = session.read();
+        let guard = session.blocking_read();
         let user_id = guard
             .user_id
             .ok_or_else(|| AppError::Unauthorized("Not authenticated".into()))?;
@@ -185,14 +209,27 @@ impl GameService {
 }
 
 fn hash_password(password: &str) -> String {
-    use std::collections::hash_map::DefaultHasher;
-    use std::hash::{Hash, Hasher};
-
-    let mut hasher = DefaultHasher::new();
-    password.hash(&mut hasher);
-    format!("sha256:{:x}", hasher.finish())
+    use argon2::{
+        password_hash::{rand_core::OsRng, PasswordHasher, SaltString},
+        Argon2,
+    };
+    let salt = SaltString::generate(&mut OsRng);
+    Argon2::default()
+        .hash_password(password.as_bytes(), &salt)
+        .map(|h| h.to_string())
+        .unwrap_or_default()
 }
 
 fn verify_password(password: &str, hash: &str) -> bool {
-    hash_password(password) == hash
+    use argon2::{
+        password_hash::{PasswordHash, PasswordVerifier},
+        Argon2,
+    };
+    if let Ok(parsed_hash) = PasswordHash::new(hash) {
+        Argon2::default()
+            .verify_password(password.as_bytes(), &parsed_hash)
+            .is_ok()
+    } else {
+        false
+    }
 }

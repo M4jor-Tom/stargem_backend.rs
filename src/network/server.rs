@@ -1,3 +1,4 @@
+use crate::api::GameService;
 use crate::network::{ClientMessage, ClientSession, ServerMessage, SessionManager};
 use crate::AppError;
 use bytes::{Buf, Bytes};
@@ -10,13 +11,15 @@ use uuid::Uuid;
 
 pub struct GameServer {
     session_manager: Arc<SessionManager>,
+    game_service: Arc<GameService>,
     address: String,
 }
 
 impl GameServer {
-    pub fn new(address: String) -> Self {
+    pub fn new(address: String, game_service: Arc<GameService>) -> Self {
         Self {
             session_manager: Arc::new(SessionManager::new()),
+            game_service,
             address,
         }
     }
@@ -34,8 +37,9 @@ impl GameServer {
                 Ok((socket, addr)) => {
                     info!("New connection from {}", addr);
                     let session_manager = self.session_manager.clone();
+                    let game_service = self.game_service.clone();
                     tokio::spawn(async move {
-                        if let Err(e) = handle_connection(socket, session_manager).await {
+                        if let Err(e) = handle_connection(socket, session_manager, game_service).await {
                             error!("Connection error: {}", e);
                         }
                     });
@@ -51,15 +55,17 @@ impl GameServer {
 async fn handle_connection(
     socket: TcpStream,
     session_manager: Arc<SessionManager>,
+    game_service: Arc<GameService>,
 ) -> Result<(), AppError> {
     let (mut read, mut write) = socket.into_split();
     let (tx, mut rx) = mpsc::channel::<ServerMessage>(100);
 
-    let session = Arc::new(parking_lot::RwLock::new(ClientSession::new(tx)));
+    let session = Arc::new(tokio::sync::RwLock::new(ClientSession::new(tx)));
     session_manager.add_session(session.clone());
-    let session_id = session.read().id;
+    let session_id = session.blocking_read().id;
 
     let sm_reader = session_manager.clone();
+    let gs_reader = game_service.clone();
 
     let reader_handle = tokio::spawn(async move {
         let mut buf = vec![0u8; 65536];
@@ -68,7 +74,7 @@ async fn handle_connection(
                 Ok(0) => break,
                 Ok(n) => {
                     let data = Bytes::copy_from_slice(&buf[..n]);
-                    if let Err(e) = process_message(&sm_reader, session_id, &data).await {
+                    if let Err(e) = process_message(&sm_reader, &gs_reader, session_id, &data).await {
                         error!("Error processing message: {}", e);
                     }
                 }
@@ -97,6 +103,7 @@ async fn handle_connection(
 
 async fn process_message(
     session_manager: &SessionManager,
+    game_service: &GameService,
     session_id: Uuid,
     data: &Bytes,
 ) -> Result<(), AppError> {
@@ -113,7 +120,7 @@ async fn process_message(
 
         if let Ok(msg) = serde_json::from_slice::<ClientMessage>(msg_data.as_ref()) {
             debug!("Received: {:?}", msg);
-            handle_client_message(session_manager, session_id, msg).await?;
+            handle_client_message(session_manager, game_service, session_id, msg).await?;
         }
     }
 
@@ -122,35 +129,16 @@ async fn process_message(
 
 async fn handle_client_message(
     session_manager: &SessionManager,
+    game_service: &GameService,
     session_id: Uuid,
     msg: ClientMessage,
 ) -> Result<(), AppError> {
-    let (is_auth, sender) = {
-        let session = session_manager
-            .get_session(session_id)
+    if let Some(response) = game_service.handle_message(session_id, msg).await? {
+        let session = session_manager.get_session(session_id)
             .ok_or_else(|| AppError::Network("Session not found".into()))?;
-        let guard = session.read();
-        (guard.is_authenticated(), guard.get_sender())
-    };
-
-    match msg {
-        ClientMessage::AuthLogin { .. } => {
-            info!("Auth login received");
-        }
-        ClientMessage::AuthRegister { .. } => {
-            info!("Auth register received");
-        }
-        _ => {
-            if !is_auth {
-                let _ = sender
-                    .send(ServerMessage::Error {
-                        message: "Not authenticated".into(),
-                    })
-                    .await;
-            }
-        }
+        let sender = session.blocking_read().get_sender();
+        let _ = sender.send(response).await;
     }
-
     Ok(())
 }
 
