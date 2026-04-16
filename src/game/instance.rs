@@ -1,5 +1,8 @@
-use crate::domain::{GameInstance, GameMode, GameState, PlayerSession};
-use crate::game::{CombatSystem, SpecialAbilityManager};
+use crate::domain::{
+    CombatEvent, CombatEventType, DamageResult, GameInstance, GameMode, GameState, PlayerSession,
+    Ship, Weapon,
+};
+use crate::game::{CombatError, CombatSystem, SpecialAbilityManager, WeaponShot};
 use chrono::{DateTime, Utc};
 use parking_lot::RwLock;
 use std::collections::HashMap;
@@ -9,6 +12,8 @@ use uuid::Uuid;
 pub struct GameInstanceManager {
     instances: HashMap<Uuid, Arc<RwLock<GameInstance>>>,
     instance_players: HashMap<Uuid, HashMap<Uuid, PlayerState>>,
+    instance_ships: HashMap<Uuid, HashMap<Uuid, Ship>>,
+    player_weapons: HashMap<Uuid, Uuid>,
     combat_systems: HashMap<Uuid, CombatSystem>,
     ability_managers: HashMap<Uuid, SpecialAbilityManager>,
 }
@@ -18,6 +23,8 @@ impl GameInstanceManager {
         Self {
             instances: HashMap::new(),
             instance_players: HashMap::new(),
+            instance_ships: HashMap::new(),
+            player_weapons: HashMap::new(),
             combat_systems: HashMap::new(),
             ability_managers: HashMap::new(),
         }
@@ -131,6 +138,95 @@ impl GameInstanceManager {
         self.ability_managers.get(&instance_id)
     }
 
+    pub fn get_mut_combat_system(&mut self, instance_id: Uuid) -> Option<&mut CombatSystem> {
+        self.combat_systems.get_mut(&instance_id)
+    }
+
+    pub fn add_ship_to_instance(&mut self, instance_id: Uuid, player_id: Uuid, ship: Ship) {
+        let ships = self.instance_ships.entry(instance_id).or_default();
+        ships.insert(player_id, ship);
+    }
+
+    pub fn get_ship(&self, instance_id: Uuid, player_id: Uuid) -> Option<&Ship> {
+        self.instance_ships.get(&instance_id)?.get(&player_id)
+    }
+
+    pub fn get_ship_mut(&mut self, instance_id: Uuid, player_id: Uuid) -> Option<&mut Ship> {
+        self.instance_ships
+            .get_mut(&instance_id)?
+            .get_mut(&player_id)
+    }
+
+    pub fn register_player_weapon(
+        &mut self,
+        instance_id: Uuid,
+        player_id: Uuid,
+        weapon: &Weapon,
+    ) -> Option<Uuid> {
+        let combat = self.combat_systems.get_mut(&instance_id)?;
+        let weapon_id = combat.register_weapon(player_id, weapon);
+        self.player_weapons.insert(player_id, weapon_id);
+        Some(weapon_id)
+    }
+
+    pub fn fire_player_weapon(
+        &mut self,
+        instance_id: Uuid,
+        attacker_id: Uuid,
+        target_id: Uuid,
+    ) -> Result<CombatResult, CombatError> {
+        let weapon_id = *self
+            .player_weapons
+            .get(&attacker_id)
+            .ok_or(CombatError::WeaponNotFound)?;
+
+        let combat = self
+            .combat_systems
+            .get_mut(&instance_id)
+            .ok_or(CombatError::InvalidTarget)?;
+
+        let shot = combat.fire_weapon(weapon_id)?;
+
+        let target_ship = self
+            .instance_ships
+            .get_mut(&instance_id)
+            .and_then(|ships| ships.get_mut(&target_id))
+            .ok_or(CombatError::InvalidTarget)?;
+
+        let damage_result = CombatSystem::apply_damage(target_ship, &shot);
+
+        let event = combat.create_combat_event(
+            instance_id,
+            attacker_id,
+            target_id,
+            if damage_result.hull_damage {
+                CombatEventType::Kill
+            } else {
+                CombatEventType::Damage
+            },
+            shot.damage,
+        );
+
+        Ok(CombatResult {
+            shot,
+            damage_result,
+            event,
+        })
+    }
+
+    pub fn is_ship_destroyed(&self, instance_id: Uuid, player_id: Uuid) -> bool {
+        self.get_ship(instance_id, player_id)
+            .map(|ship| !ship.is_alive())
+            .unwrap_or(true)
+    }
+
+    pub fn get_all_ships(&self, instance_id: Uuid) -> Vec<&Ship> {
+        self.instance_ships
+            .get(&instance_id)
+            .map(|ships| ships.values().collect())
+            .unwrap_or_default()
+    }
+
     pub fn list_instances(&self, mode: Option<GameMode>) -> Vec<Arc<RwLock<GameInstance>>> {
         self.instances
             .values()
@@ -153,13 +249,36 @@ impl GameInstanceManager {
             .map(|(id, _)| *id)
             .collect();
 
-        for id in ended {
-            self.instances.remove(&id);
-            self.instance_players.remove(&id);
-            self.combat_systems.remove(&id);
-            self.ability_managers.remove(&id);
+        for id in &ended {
+            self.instances.remove(id);
+            self.instance_players.remove(id);
+            self.instance_ships.remove(id);
+            self.combat_systems.remove(id);
+            self.ability_managers.remove(id);
+        }
+
+        for player_id in ended.iter().flat_map(|id| {
+            self.instance_players
+                .get(id)
+                .map(|p| p.keys().cloned())
+                .unwrap_or_default()
+        }) {
+            self.player_weapons.remove(&player_id);
         }
     }
+}
+
+impl Default for GameInstanceManager {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct CombatResult {
+    pub shot: WeaponShot,
+    pub damage_result: DamageResult,
+    pub event: CombatEvent,
 }
 
 #[derive(Debug, Clone)]

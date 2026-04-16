@@ -316,7 +316,7 @@ impl SpecialAbilityManager {
             if ability.duration_ms == 0 {
                 return false;
             }
-            let elapsed = (now - ability.start_time).num_milliseconds() as i64;
+            let elapsed = (now - ability.start_time).num_milliseconds();
             elapsed < ability.duration_ms
         });
 

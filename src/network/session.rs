@@ -86,8 +86,8 @@ impl SessionManager {
         except: Option<Uuid>,
     ) {
         for session in self.sessions.iter() {
-            let sid = session.key().clone();
-            let should_send = except.map_or(true, |e| sid != e);
+            let sid = *session.key();
+            let should_send = except != Some(sid);
 
             if should_send {
                 let inst_id = session.blocking_read().game_instance_id;

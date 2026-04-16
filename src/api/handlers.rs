@@ -65,6 +65,9 @@ impl GameService {
         username: String,
         password: String,
     ) -> Result<Option<ServerMessage>, AppError> {
+        validate_username(&username)?;
+        validate_password(&password)?;
+
         let user = self
             .user_repo
             .find_by_username(&username)
@@ -94,6 +97,10 @@ impl GameService {
         email: String,
         password: String,
     ) -> Result<Option<ServerMessage>, AppError> {
+        validate_username(&username)?;
+        validate_email(&email)?;
+        validate_password(&password)?;
+
         if self.user_repo.find_by_username(&username).await?.is_some() {
             return Ok(Some(ServerMessage::AuthError {
                 message: "Username already taken".into(),
@@ -106,7 +113,7 @@ impl GameService {
             }));
         }
 
-        let password_hash = hash_password(&password);
+        let password_hash = hash_password(&password)?;
         let user = User::new(username, email, password_hash);
         self.user_repo.create(&user).await?;
 
@@ -208,16 +215,16 @@ impl GameService {
     }
 }
 
-fn hash_password(password: &str) -> String {
+fn hash_password(password: &str) -> Result<String, AppError> {
     use argon2::{
         password_hash::{rand_core::OsRng, PasswordHasher, SaltString},
         Argon2,
     };
     let salt = SaltString::generate(&mut OsRng);
-    Argon2::default()
+    let hash = Argon2::default()
         .hash_password(password.as_bytes(), &salt)
-        .map(|h| h.to_string())
-        .unwrap_or_default()
+        .map_err(|e| AppError::Internal(format!("Password hashing failed: {}", e)))?;
+    Ok(hash.to_string())
 }
 
 fn verify_password(password: &str, hash: &str) -> bool {
@@ -232,4 +239,37 @@ fn verify_password(password: &str, hash: &str) -> bool {
     } else {
         false
     }
+}
+
+fn validate_username(username: &str) -> Result<(), AppError> {
+    if username.len() < 3 {
+        return Err(AppError::BadRequest("Username must be at least 3 characters".into()));
+    }
+    if username.len() > 32 {
+        return Err(AppError::BadRequest("Username must be at most 32 characters".into()));
+    }
+    if !username.chars().all(|c| c.is_alphanumeric() || c == '_' || c == '-') {
+        return Err(AppError::BadRequest("Username can only contain alphanumeric characters, underscores, and hyphens".into()));
+    }
+    Ok(())
+}
+
+fn validate_email(email: &str) -> Result<(), AppError> {
+    if !email.contains('@') || !email.contains('.') {
+        return Err(AppError::BadRequest("Invalid email format".into()));
+    }
+    if email.len() > 255 {
+        return Err(AppError::BadRequest("Email must be at most 255 characters".into()));
+    }
+    Ok(())
+}
+
+fn validate_password(password: &str) -> Result<(), AppError> {
+    if password.len() < 8 {
+        return Err(AppError::BadRequest("Password must be at least 8 characters".into()));
+    }
+    if password.len() > 128 {
+        return Err(AppError::BadRequest("Password must be at most 128 characters".into()));
+    }
+    Ok(())
 }

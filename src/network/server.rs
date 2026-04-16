@@ -88,7 +88,13 @@ async fn handle_connection(
 
     let writer_handle = tokio::spawn(async move {
         while let Some(msg) = rx.recv().await {
-            let data = serialize_message(&msg);
+            let data = match serialize_message(&msg) {
+                Ok(d) => d,
+                Err(e) => {
+                    error!("Serialization error: {}", e);
+                    continue;
+                }
+            };
             if let Err(e) = write.write_all(&data).await {
                 error!("Write error: {}", e);
                 break;
@@ -142,10 +148,10 @@ async fn handle_client_message(
     Ok(())
 }
 
-fn serialize_message(msg: &ServerMessage) -> Vec<u8> {
-    let data = serde_json::to_vec(msg).unwrap_or_default();
+fn serialize_message(msg: &ServerMessage) -> Result<Vec<u8>, serde_json::Error> {
+    let data = serde_json::to_vec(msg)?;
     let mut result = Vec::with_capacity(4 + data.len());
     result.extend_from_slice(&(data.len() as u32).to_be_bytes());
     result.extend_from_slice(&data);
-    result
+    Ok(result)
 }
