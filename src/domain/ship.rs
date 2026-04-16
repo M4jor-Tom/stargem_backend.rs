@@ -281,9 +281,9 @@ impl Ship {
 
         let (shield_damage, armor_damage) = if shield_dmg > self.current_shield {
             let shield_dmg_dealt = self.current_shield;
+            let remaining = shield_dmg - shield_dmg_dealt;
             self.current_shield = 0.0;
 
-            let remaining = shield_dmg - self.current_shield;
             let effective_dmg = remaining * armor_effective;
             let armor_dmg_dealt = effective_dmg.min(self.current_armor);
             self.current_armor -= armor_dmg_dealt;
