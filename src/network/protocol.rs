@@ -6,13 +6,20 @@ use uuid::Uuid;
 #[serde(tag = "type")]
 pub enum ClientMessage {
     #[serde(rename = "auth_login")]
-    AuthLogin { username: String, password: String },
+    AuthLogin {
+        username: String,
+        password: String,
+        #[serde(default)]
+        ip: Option<String>,
+    },
 
     #[serde(rename = "auth_register")]
     AuthRegister {
         username: String,
         email: String,
         password: String,
+        #[serde(default)]
+        ip: Option<String>,
     },
 
     #[serde(rename = "ship_list")]

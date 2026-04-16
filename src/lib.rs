@@ -4,5 +4,6 @@ pub mod domain;
 pub mod error;
 pub mod game;
 pub mod network;
+pub mod security;
 
 pub use error::AppError;

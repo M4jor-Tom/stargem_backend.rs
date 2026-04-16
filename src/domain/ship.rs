@@ -255,6 +255,24 @@ impl Ship {
         }
     }
 
+    pub fn new_with_name(user_id: Uuid, model: &ShipModel, name: String) -> Self {
+        Self {
+            id: Uuid::new_v4(),
+            user_id,
+            model_id: model.id,
+            name,
+            passive_modules: Vec::new(),
+            active_modules: Vec::new(),
+            weapon_id: None,
+            missiles: Vec::new(),
+            current_stats: model.base_stats.clone(),
+            current_shield: model.base_stats.max_shield,
+            current_armor: model.base_stats.max_armor,
+            current_energy: model.base_stats.max_energy,
+            created_at: Utc::now(),
+        }
+    }
+
     pub fn apply_damage(&mut self, damage: f32, damage_type: DamageType) -> DamageResult {
         let shield_effective = damage_type.effectiveness_against_shield();
         let armor_effective = damage_type.effectiveness_against_armor();

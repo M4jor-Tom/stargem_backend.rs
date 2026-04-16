@@ -1,5 +1,5 @@
 use stargem_server::api::GameService;
-use stargem_server::db::{create_pool, PostgresHangarRepository, PostgresShipRepository, PostgresUserRepository};
+use stargem_server::db::{create_pool, PostgresHangarRepository, PostgresShipModelRepository, PostgresShipRepository, PostgresUserRepository};
 use stargem_server::network::{GameServer, SessionManager};
 use std::sync::Arc;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
@@ -21,12 +21,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let user_repo = Arc::new(PostgresUserRepository::new(pool.clone()));
     let ship_repo = Arc::new(PostgresShipRepository::new(pool.clone()));
+    let ship_model_repo = Arc::new(PostgresShipModelRepository::new(pool.clone()));
     let hangar_repo = Arc::new(PostgresHangarRepository::new(pool.clone()));
     let session_manager = Arc::new(SessionManager::new());
 
     let game_service = Arc::new(GameService::new(
         user_repo,
         ship_repo,
+        ship_model_repo,
         hangar_repo,
         session_manager.clone(),
     ));

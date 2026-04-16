@@ -14,6 +14,11 @@ pub trait UserRepository: Send + Sync {
     async fn update_credits(&self, user_id: Uuid, delta: i64) -> Result<(), AppError>;
 }
 
+#[async_trait]
+pub trait ShipModelRepository: Send + Sync {
+    async fn find_by_id(&self, id: Uuid) -> Result<Option<ShipModel>, AppError>;
+}
+
 pub struct PostgresUserRepository {
     pool: PgPool,
 }
@@ -120,6 +125,110 @@ impl From<UserRow> for User {
             created_at: row.created_at,
             last_login: row.last_login,
         }
+    }
+}
+
+pub struct PostgresShipModelRepository {
+    pool: PgPool,
+}
+
+impl PostgresShipModelRepository {
+    pub fn new(pool: PgPool) -> Self {
+        Self { pool }
+    }
+}
+
+#[async_trait]
+impl ShipModelRepository for PostgresShipModelRepository {
+    async fn find_by_id(&self, id: Uuid) -> Result<Option<ShipModel>, AppError> {
+        let row = sqlx::query_as::<_, ShipModelRow>(
+            "SELECT * FROM ship_models WHERE id = $1"
+        )
+        .bind(id)
+        .fetch_optional(&self.pool)
+        .await?;
+        Ok(row.map(|r| r.into()))
+    }
+}
+
+#[derive(sqlx::FromRow)]
+struct ShipModelRow {
+    id: Uuid,
+    name: String,
+    description: String,
+    size: String,
+    role: Option<String>,
+    base_stats: sqlx::types::Json<ShipStats>,
+    price: i64,
+    passive_module_slots: Vec<String>,
+    active_module_count: i32,
+    weapon_type: String,
+    missile_slots: i32,
+    created_at: chrono::DateTime<chrono::Utc>,
+}
+
+impl From<ShipModelRow> for ShipModel {
+    fn from(row: ShipModelRow) -> Self {
+        ShipModel {
+            id: row.id,
+            name: row.name,
+            description: row.description,
+            size: parse_ship_size(&row.size),
+            role: row.role.as_ref().and_then(|r| parse_ship_role(r)),
+            base_stats: row.base_stats.0,
+            price: row.price,
+            passive_module_slots: row.passive_module_slots.iter()
+                .filter_map(|s| parse_passive_module_type(s).ok())
+                .collect(),
+            active_module_count: row.active_module_count as usize,
+            weapon_type: parse_weapon_size(&row.weapon_type),
+            missile_slots: row.missile_slots as usize,
+            created_at: row.created_at,
+        }
+    }
+}
+
+fn parse_ship_size(s: &str) -> ShipSize {
+    match s {
+        "Frigate" => ShipSize::Frigate,
+        "Fighter" => ShipSize::Fighter,
+        "Interceptor" => ShipSize::Interceptor,
+        _ => ShipSize::Fighter,
+    }
+}
+
+fn parse_ship_role(s: &str) -> Option<ShipRole> {
+    match s {
+        "Engineer" => Some(ShipRole::Frigate(FrigateRole::Engineer)),
+        "LongRange" => Some(ShipRole::Frigate(FrigateRole::LongRange)),
+        "Guard" => Some(ShipRole::Frigate(FrigateRole::Guard)),
+        "Tackler" => Some(ShipRole::Fighter(FighterRole::Tackler)),
+        "GunShip" => Some(ShipRole::Fighter(FighterRole::GunShip)),
+        "Command" => Some(ShipRole::Fighter(FighterRole::Command)),
+        "CoverOps" => Some(ShipRole::Interceptor(InterceptorRole::CoverOps)),
+        "Recon" => Some(ShipRole::Interceptor(InterceptorRole::Recon)),
+        "ECM" => Some(ShipRole::Interceptor(InterceptorRole::ECM)),
+        _ => None,
+    }
+}
+
+fn parse_weapon_size(s: &str) -> WeaponSize {
+    match s {
+        "Frigate" => WeaponSize::Frigate,
+        "Fighter" => WeaponSize::Fighter,
+        "Interceptor" => WeaponSize::Interceptor,
+        _ => WeaponSize::Fighter,
+    }
+}
+
+fn parse_passive_module_type(s: &str) -> Result<PassiveModuleType, ()> {
+    match s {
+        "Shield" => Ok(PassiveModuleType::Shield),
+        "Armor" => Ok(PassiveModuleType::Armor),
+        "Capacitor" => Ok(PassiveModuleType::Capacitor),
+        "Motor" => Ok(PassiveModuleType::Motor),
+        "Computer" => Ok(PassiveModuleType::Computer),
+        _ => Err(()),
     }
 }
 
