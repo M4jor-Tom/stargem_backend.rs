@@ -335,3 +335,167 @@ pub struct DamageResult {
     pub armor_damage: f32,
     pub hull_damage: bool,
 }
+
+#[cfg(test)]
+mod ship_tests {
+    use super::*;
+
+    #[test]
+    fn test_damage_effectiveness_electromagnetic_vs_shield() {
+        let em = DamageType::Electromagnetic;
+        assert_eq!(em.effectiveness_against_shield(), 1.5);
+        assert_eq!(em.effectiveness_against_armor(), 0.5);
+    }
+
+    #[test]
+    fn test_damage_effectiveness_kinetic_vs_armor() {
+        let kinetic = DamageType::Kinetic;
+        assert_eq!(kinetic.effectiveness_against_shield(), 0.5);
+        assert_eq!(kinetic.effectiveness_against_armor(), 1.5);
+    }
+
+    #[test]
+    fn test_damage_effectiveness_thermic_balanced() {
+        let thermic = DamageType::Thermic;
+        assert_eq!(thermic.effectiveness_against_shield(), 1.0);
+        assert_eq!(thermic.effectiveness_against_armor(), 1.0);
+    }
+
+    #[test]
+    fn test_ship_size_slot_count() {
+        assert_eq!(ShipSize::Frigate.slot_count(), 6);
+        assert_eq!(ShipSize::Fighter.slot_count(), 4);
+        assert_eq!(ShipSize::Interceptor.slot_count(), 3);
+    }
+
+    fn create_test_ship() -> Ship {
+        Ship {
+            id: uuid::Uuid::new_v4(),
+            user_id: uuid::Uuid::new_v4(),
+            model_id: uuid::Uuid::new_v4(),
+            name: "Test Ship".into(),
+            passive_modules: Vec::new(),
+            active_modules: Vec::new(),
+            weapon_id: None,
+            missiles: Vec::new(),
+            current_stats: ShipStats::default(),
+            current_shield: 100.0,
+            current_armor: 100.0,
+            current_energy: 100.0,
+            created_at: chrono::Utc::now(),
+        }
+    }
+
+    #[test]
+    fn test_ship_apply_damage_electromagnetic() {
+        let mut ship = create_test_ship();
+        ship.current_shield = 100.0;
+        ship.current_armor = 100.0;
+
+        let result = ship.apply_damage(100.0, DamageType::Electromagnetic);
+
+        assert_eq!(result.shield_damage, 100.0);
+        assert_eq!(ship.current_shield, 0.0);
+        assert!(!result.hull_damage);
+    }
+
+    #[test]
+    fn test_ship_apply_damage_overflow_to_armor() {
+        let mut ship = create_test_ship();
+        ship.current_shield = 50.0;
+        ship.current_armor = 100.0;
+
+        let result = ship.apply_damage(100.0, DamageType::Electromagnetic);
+
+        assert_eq!(ship.current_shield, 0.0);
+        assert!(result.armor_damage > 0.0);
+        assert!(!result.hull_damage);
+    }
+
+    #[test]
+    fn test_ship_apply_damage_kinetic() {
+        let mut ship = create_test_ship();
+        ship.current_shield = 100.0;
+        ship.current_armor = 100.0;
+
+        let result = ship.apply_damage(100.0, DamageType::Kinetic);
+
+        assert_eq!(result.shield_damage, 50.0);
+        assert_eq!(ship.current_shield, 50.0);
+        assert!(!result.hull_damage);
+    }
+
+    #[test]
+    fn test_ship_destroyed() {
+        let mut ship = create_test_ship();
+        ship.current_armor = 50.0;
+
+        let result = ship.apply_damage(500.0, DamageType::Kinetic);
+
+        assert!(result.hull_damage);
+        assert!(!ship.is_alive());
+    }
+
+    #[test]
+    fn test_ship_is_alive() {
+        let ship = create_test_ship();
+        assert!(ship.is_alive());
+    }
+}
+
+#[cfg(test)]
+mod stats_tests {
+    use super::*;
+
+    #[test]
+    fn test_stat_modifiers_apply() {
+        let mut stats = ShipStats::default();
+        let modifiers = StatModifiers {
+            shield_bonus: 50.0,
+            armor_bonus: 30.0,
+            energy_bonus: 20.0,
+            speed_bonus: 10.0,
+            ..Default::default()
+        };
+
+        modifiers.apply_to(&mut stats);
+
+        assert_eq!(stats.max_shield, 150.0);
+        assert_eq!(stats.max_armor, 130.0);
+        assert_eq!(stats.max_energy, 120.0);
+        assert_eq!(stats.speed, 110.0);
+    }
+
+    #[test]
+    fn test_stat_modifiers_stacking() {
+        let mut stats = ShipStats::default();
+
+        let mod1 = StatModifiers {
+            shield_bonus: 25.0,
+            ..Default::default()
+        };
+        let mod2 = StatModifiers {
+            shield_bonus: 25.0,
+            speed_bonus: 50.0,
+            ..Default::default()
+        };
+
+        mod1.apply_to(&mut stats);
+        mod2.apply_to(&mut stats);
+
+        assert_eq!(stats.max_shield, 150.0);
+        assert_eq!(stats.speed, 150.0);
+    }
+
+    #[test]
+    fn test_ship_stats_default() {
+        let stats = ShipStats::default();
+
+        assert_eq!(stats.max_shield, 100.0);
+        assert_eq!(stats.max_armor, 100.0);
+        assert_eq!(stats.max_energy, 100.0);
+        assert_eq!(stats.shield_regen, 5.0);
+        assert_eq!(stats.armor_regen, 2.0);
+        assert_eq!(stats.energy_regen, 10.0);
+    }
+}

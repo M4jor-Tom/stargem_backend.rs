@@ -39,7 +39,7 @@
           done
 
           echo "Running integration tests..."
-          cargo test --test '*' "$@"
+          cargo test
         '';
       in
       {
