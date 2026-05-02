@@ -23,11 +23,11 @@ impl RateLimiter {
         let now = Instant::now();
         let window_start = now - Duration::from_secs(self.window_secs);
 
-        let timestamps = requests.entry(key.to_string()).or_insert_with(Vec::new);
+        let timestamps = requests.entry(key.to_string()).or_default();
         timestamps.retain(|t| *t > window_start);
 
         if timestamps.len() >= self.max_requests {
-            let oldest = timestamps.first().map(|t| *t).unwrap_or(now);
+            let oldest = timestamps.first().copied().unwrap_or(now);
             let retry_after = (window_start + Duration::from_secs(self.window_secs) - oldest)
                 .as_secs()
                 .max(1);
@@ -74,10 +74,12 @@ impl BruteForceProtector {
         let now = Instant::now();
 
         if let Some(attempt) = attempts.get_mut(identifier) {
-            if attempt.locked_until.is_some() && attempt.locked_until.unwrap() > now {
-                return BruteForceResult::Locked {
-                    remaining_secs: attempt.locked_until.unwrap().duration_since(now).as_secs(),
-                };
+            if let Some(locked_until) = attempt.locked_until {
+                if locked_until > now {
+                    return BruteForceResult::Locked {
+                        remaining_secs: locked_until.duration_since(now).as_secs(),
+                    };
+                }
             }
 
             if let Some(last_attempt) = attempt.last_attempt {
@@ -99,9 +101,7 @@ impl BruteForceProtector {
 
     pub fn record_failure(&self, identifier: &str) {
         let mut attempts = self.failed_attempts.write();
-        let attempt = attempts
-            .entry(identifier.to_string())
-            .or_insert_with(FailedLoginAttempt::default);
+        let attempt = attempts.entry(identifier.to_string()).or_default();
         attempt.count += 1;
         attempt.last_attempt = Some(Instant::now());
     }
@@ -118,9 +118,8 @@ impl BruteForceProtector {
             if let Some(locked) = v.locked_until {
                 locked > now
             } else {
-                v.last_attempt.map_or(false, |t| {
-                    now.duration_since(t).as_secs() < self.reset_after_secs * 2
-                })
+                v.last_attempt
+                    .is_some_and(|t| now.duration_since(t).as_secs() < self.reset_after_secs * 2)
             }
         });
     }
