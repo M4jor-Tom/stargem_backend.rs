@@ -27,7 +27,11 @@ impl GameServer {
         }
     }
 
-    pub fn with_tls(address: String, game_service: Arc<GameService>, tls_config: TlsConfig) -> Self {
+    pub fn with_tls(
+        address: String,
+        game_service: Arc<GameService>,
+        tls_config: TlsConfig,
+    ) -> Self {
         Self {
             session_manager: Arc::new(SessionManager::new()),
             game_service,
@@ -82,7 +86,7 @@ async fn handle_tls_connection(
     tls_config: Arc<TlsConfig>,
 ) -> Result<(), AppError> {
     let tls_acceptor = tokio_rustls::TlsAcceptor::from(tls_config.server_config.clone());
-    
+
     let stream = match tls_acceptor.accept(socket).await {
         Ok(s) => s,
         Err(e) => {
@@ -119,7 +123,8 @@ async fn handle_tls_stream(
                 Ok(0) => break,
                 Ok(n) => {
                     let data = Bytes::copy_from_slice(&buf[..n]);
-                    if let Err(e) = process_message(&sm_reader, &gs_reader, session_id, &data).await {
+                    if let Err(e) = process_message(&sm_reader, &gs_reader, session_id, &data).await
+                    {
                         error!("Error processing message: {}", e);
                     }
                 }
@@ -175,7 +180,8 @@ async fn handle_connection(
                 Ok(0) => break,
                 Ok(n) => {
                     let data = Bytes::copy_from_slice(&buf[..n]);
-                    if let Err(e) = process_message(&sm_reader, &gs_reader, session_id, &data).await {
+                    if let Err(e) = process_message(&sm_reader, &gs_reader, session_id, &data).await
+                    {
                         error!("Error processing message: {}", e);
                     }
                 }
@@ -241,7 +247,8 @@ async fn handle_client_message(
     msg: ClientMessage,
 ) -> Result<(), AppError> {
     if let Some(response) = game_service.handle_message(session_id, msg).await? {
-        let session = session_manager.get_session(session_id)
+        let session = session_manager
+            .get_session(session_id)
             .ok_or_else(|| AppError::Network("Session not found".into()))?;
         let sender = session.blocking_read().get_sender();
         let _ = sender.send(response).await;

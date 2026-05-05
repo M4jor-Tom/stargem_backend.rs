@@ -141,12 +141,10 @@ impl PostgresShipModelRepository {
 #[async_trait]
 impl ShipModelRepository for PostgresShipModelRepository {
     async fn find_by_id(&self, id: Uuid) -> Result<Option<ShipModel>, AppError> {
-        let row = sqlx::query_as::<_, ShipModelRow>(
-            "SELECT * FROM ship_models WHERE id = $1"
-        )
-        .bind(id)
-        .fetch_optional(&self.pool)
-        .await?;
+        let row = sqlx::query_as::<_, ShipModelRow>("SELECT * FROM ship_models WHERE id = $1")
+            .bind(id)
+            .fetch_optional(&self.pool)
+            .await?;
         Ok(row.map(|r| r.into()))
     }
 }
@@ -177,7 +175,9 @@ impl From<ShipModelRow> for ShipModel {
             role: row.role.as_ref().and_then(|r| parse_ship_role(r)),
             base_stats: row.base_stats.0,
             price: row.price,
-            passive_module_slots: row.passive_module_slots.iter()
+            passive_module_slots: row
+                .passive_module_slots
+                .iter()
                 .filter_map(|s| parse_passive_module_type(s).ok())
                 .collect(),
             active_module_count: row.active_module_count as usize,
@@ -391,7 +391,7 @@ impl PostgresHangarRepository {
 impl HangarRepository for PostgresHangarRepository {
     async fn get(&self, user_id: Uuid) -> Result<Option<Hangar>, AppError> {
         let row = sqlx::query_as::<_, HangarRow>(
-            "SELECT user_id, ship_ids, selected_ship_index FROM hangars WHERE user_id = $1"
+            "SELECT user_id, ship_ids, selected_ship_index FROM hangars WHERE user_id = $1",
         )
         .bind(user_id)
         .fetch_optional(&self.pool)
@@ -409,7 +409,7 @@ impl HangarRepository for PostgresHangarRepository {
             INSERT INTO hangars (user_id, ship_ids, selected_ship_index)
             VALUES ($1, $2::uuid[], 0)
             ON CONFLICT (user_id) DO UPDATE SET ship_ids = array_append(hangars.ship_ids, $2)
-            "#
+            "#,
         )
         .bind(user_id)
         .bind(ship_id)
@@ -425,7 +425,7 @@ impl HangarRepository for PostgresHangarRepository {
             SET ship_ids = array_remove(hangars.ship_ids, $2),
                 selected_ship_index = NULL
             WHERE user_id = $1
-            "#
+            "#,
         )
         .bind(user_id)
         .bind(ship_id)

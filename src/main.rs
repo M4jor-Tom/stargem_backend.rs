@@ -1,5 +1,8 @@
 use stargem_server::api::GameService;
-use stargem_server::db::{create_pool, PostgresHangarRepository, PostgresShipModelRepository, PostgresShipRepository, PostgresUserRepository};
+use stargem_server::db::{
+    create_pool, PostgresHangarRepository, PostgresShipModelRepository, PostgresShipRepository,
+    PostgresUserRepository,
+};
 use stargem_server::network::{GameServer, SessionManager, TlsConfig};
 use std::sync::Arc;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
@@ -40,7 +43,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         let tls_cert = std::env::var("TLS_CERT").expect("TLS_CERT required when USE_TLS=true");
         let tls_key = std::env::var("TLS_KEY").expect("TLS_KEY required when USE_TLS=true");
         let tls_config = TlsConfig::from_pem_files(&tls_cert, &tls_key)?;
-        let addr = if bind_addr.contains(':') { bind_addr } else { format!("{}:443", bind_addr) };
+        let addr = if bind_addr.contains(':') {
+            bind_addr
+        } else {
+            format!("{}:443", bind_addr)
+        };
         tracing::info!("Starting Stargem server with TLS on {}", addr);
         GameServer::with_tls(addr, game_service, tls_config)
     } else {

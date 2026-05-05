@@ -3,7 +3,9 @@ use crate::domain::{Ship, User};
 use crate::error::AppError;
 use crate::network::session::SessionManager;
 use crate::network::{ClientMessage, ServerMessage, ShipInfo};
-use crate::security::{BruteForceProtector, BruteForceResult, RateLimitResult, RateLimiter, SessionTimeoutManager};
+use crate::security::{
+    BruteForceProtector, BruteForceResult, RateLimitResult, RateLimiter, SessionTimeoutManager,
+};
 use std::sync::Arc;
 use uuid::Uuid;
 
@@ -65,8 +67,13 @@ impl GameService {
         }
 
         match msg {
-            ClientMessage::AuthLogin { username, password, ip } => {
-                self.handle_login(session_id, username, password, ip.as_deref()).await
+            ClientMessage::AuthLogin {
+                username,
+                password,
+                ip,
+            } => {
+                self.handle_login(session_id, username, password, ip.as_deref())
+                    .await
             }
             ClientMessage::AuthRegister {
                 username,
@@ -134,7 +141,10 @@ impl GameService {
         match self.brute_force_protector.check(rate_key) {
             BruteForceResult::Locked { remaining_secs } => {
                 return Ok(Some(ServerMessage::Error {
-                    message: format!("Too many failed attempts, try again in {} seconds", remaining_secs),
+                    message: format!(
+                        "Too many failed attempts, try again in {} seconds",
+                        remaining_secs
+                    ),
                 }));
             }
             BruteForceResult::Allowed => {}
@@ -240,12 +250,17 @@ impl GameService {
         name: String,
     ) -> Result<Option<ServerMessage>, AppError> {
         let user_id = self.get_session_user(session_id)?;
-        
+
         if name.len() < 3 || name.len() > 50 {
-            return Err(AppError::BadRequest("Ship name must be between 3 and 50 characters".into()));
+            return Err(AppError::BadRequest(
+                "Ship name must be between 3 and 50 characters".into(),
+            ));
         }
 
-        let model = self.ship_model_repo.find_by_id(model_id).await?
+        let model = self
+            .ship_model_repo
+            .find_by_id(model_id)
+            .await?
             .ok_or_else(|| AppError::NotFound("Ship model not found".into()))?;
 
         let ship = Ship::new_with_name(user_id, &model, name);
@@ -264,10 +279,13 @@ impl GameService {
         _slot: usize,
     ) -> Result<Option<ServerMessage>, AppError> {
         let user_id = self.get_session_user(session_id)?;
-        
-        let ship = self.ship_repo.find_by_id(ship_id).await?
+
+        let ship = self
+            .ship_repo
+            .find_by_id(ship_id)
+            .await?
             .ok_or_else(|| AppError::NotFound("Ship not found".into()))?;
-        
+
         if ship.user_id != user_id {
             return Err(AppError::Forbidden("You do not own this ship".into()));
         }
@@ -285,10 +303,13 @@ impl GameService {
         _slot: usize,
     ) -> Result<Option<ServerMessage>, AppError> {
         let user_id = self.get_session_user(session_id)?;
-        
-        let ship = self.ship_repo.find_by_id(ship_id).await?
+
+        let ship = self
+            .ship_repo
+            .find_by_id(ship_id)
+            .await?
             .ok_or_else(|| AppError::NotFound("Ship not found".into()))?;
-        
+
         if ship.user_id != user_id {
             return Err(AppError::Forbidden("You do not own this ship".into()));
         }
@@ -305,10 +326,13 @@ impl GameService {
         _weapon_id: Uuid,
     ) -> Result<Option<ServerMessage>, AppError> {
         let user_id = self.get_session_user(session_id)?;
-        
-        let ship = self.ship_repo.find_by_id(ship_id).await?
+
+        let ship = self
+            .ship_repo
+            .find_by_id(ship_id)
+            .await?
             .ok_or_else(|| AppError::NotFound("Ship not found".into()))?;
-        
+
         if ship.user_id != user_id {
             return Err(AppError::Forbidden("You do not own this ship".into()));
         }
@@ -324,22 +348,30 @@ impl GameService {
         ship_id: Uuid,
     ) -> Result<Option<ServerMessage>, AppError> {
         let user_id = self.get_session_user(session_id)?;
-        
-        let ship = self.ship_repo.find_by_id(ship_id).await?
+
+        let ship = self
+            .ship_repo
+            .find_by_id(ship_id)
+            .await?
             .ok_or_else(|| AppError::NotFound("Ship not found".into()))?;
-        
+
         if ship.user_id != user_id {
             return Err(AppError::Forbidden("You do not own this ship".into()));
         }
-        
+
         self.hangar_repo.add_ship(user_id, ship_id).await?;
-        
-        let hangar = self.hangar_repo.get(user_id).await?
+
+        let hangar = self
+            .hangar_repo
+            .get(user_id)
+            .await?
             .ok_or_else(|| AppError::Internal("Failed to get hangar".into()))?;
-        
+
         self.session_timeout_manager.touch(session_id);
-        
-        Ok(Some(ServerMessage::HangarUpdated { hangar: hangar.into() }))
+
+        Ok(Some(ServerMessage::HangarUpdated {
+            hangar: hangar.into(),
+        }))
     }
 
     async fn handle_hangar_remove(
@@ -348,22 +380,30 @@ impl GameService {
         ship_id: Uuid,
     ) -> Result<Option<ServerMessage>, AppError> {
         let user_id = self.get_session_user(session_id)?;
-        
-        let ship = self.ship_repo.find_by_id(ship_id).await?
+
+        let ship = self
+            .ship_repo
+            .find_by_id(ship_id)
+            .await?
             .ok_or_else(|| AppError::NotFound("Ship not found".into()))?;
-        
+
         if ship.user_id != user_id {
             return Err(AppError::Forbidden("You do not own this ship".into()));
         }
-        
+
         self.hangar_repo.remove_ship(user_id, ship_id).await?;
-        
-        let hangar = self.hangar_repo.get(user_id).await?
+
+        let hangar = self
+            .hangar_repo
+            .get(user_id)
+            .await?
             .ok_or_else(|| AppError::Internal("Failed to get hangar".into()))?;
-        
+
         self.session_timeout_manager.touch(session_id);
-        
-        Ok(Some(ServerMessage::HangarUpdated { hangar: hangar.into() }))
+
+        Ok(Some(ServerMessage::HangarUpdated {
+            hangar: hangar.into(),
+        }))
     }
 
     async fn handle_hangar_select(
@@ -372,17 +412,22 @@ impl GameService {
         index: usize,
     ) -> Result<Option<ServerMessage>, AppError> {
         let user_id = self.get_session_user(session_id)?;
-        
-        let hangar = self.hangar_repo.get(user_id).await?
+
+        let hangar = self
+            .hangar_repo
+            .get(user_id)
+            .await?
             .ok_or_else(|| AppError::NotFound("Hangar not found".into()))?;
-        
+
         if index >= hangar.ship_ids.len() {
             return Err(AppError::BadRequest("Invalid ship index".into()));
         }
 
         self.session_timeout_manager.touch(session_id);
 
-        Ok(Some(ServerMessage::HangarUpdated { hangar: hangar.into() }))
+        Ok(Some(ServerMessage::HangarUpdated {
+            hangar: hangar.into(),
+        }))
     }
 
     fn get_session_user(&self, session_id: Uuid) -> Result<Uuid, AppError> {
@@ -426,13 +471,22 @@ fn verify_password(password: &str, hash: &str) -> bool {
 
 fn validate_username(username: &str) -> Result<(), AppError> {
     if username.len() < 3 {
-        return Err(AppError::BadRequest("Username must be at least 3 characters".into()));
+        return Err(AppError::BadRequest(
+            "Username must be at least 3 characters".into(),
+        ));
     }
     if username.len() > 32 {
-        return Err(AppError::BadRequest("Username must be at most 32 characters".into()));
+        return Err(AppError::BadRequest(
+            "Username must be at most 32 characters".into(),
+        ));
     }
-    if !username.chars().all(|c| c.is_alphanumeric() || c == '_' || c == '-') {
-        return Err(AppError::BadRequest("Username can only contain alphanumeric characters, underscores, and hyphens".into()));
+    if !username
+        .chars()
+        .all(|c| c.is_alphanumeric() || c == '_' || c == '-')
+    {
+        return Err(AppError::BadRequest(
+            "Username can only contain alphanumeric characters, underscores, and hyphens".into(),
+        ));
     }
     Ok(())
 }
@@ -442,17 +496,23 @@ fn validate_email(email: &str) -> Result<(), AppError> {
         return Err(AppError::BadRequest("Invalid email format".into()));
     }
     if email.len() > 255 {
-        return Err(AppError::BadRequest("Email must be at most 255 characters".into()));
+        return Err(AppError::BadRequest(
+            "Email must be at most 255 characters".into(),
+        ));
     }
     Ok(())
 }
 
 fn validate_password(password: &str) -> Result<(), AppError> {
     if password.len() < 8 {
-        return Err(AppError::BadRequest("Password must be at least 8 characters".into()));
+        return Err(AppError::BadRequest(
+            "Password must be at least 8 characters".into(),
+        ));
     }
     if password.len() > 128 {
-        return Err(AppError::BadRequest("Password must be at most 128 characters".into()));
+        return Err(AppError::BadRequest(
+            "Password must be at most 128 characters".into(),
+        ));
     }
     Ok(())
 }
