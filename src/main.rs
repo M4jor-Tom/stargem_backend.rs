@@ -38,8 +38,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let grpc_addr = args.grpc_addr.clone();
     let tick_rate = args.tick_rate;
 
+    let quic_addr2 = quic_addr.clone();
     let quic_handle = tokio::spawn(async move {
-        transport::quic::serve(&quic_addr, tick_rate)
+        transport::quic::serve(&quic_addr2, tick_rate)
             .await
             .expect("QUIC server failed");
     });
