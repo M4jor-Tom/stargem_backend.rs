@@ -1,0 +1,11 @@
+[electromagnetic]
+shield = 1.5
+armor = 0.5
+
+[kinetic]
+shield = 0.5
+armor = 1.5
+
+[thermic]
+shield = 1.0
+armor = 1.0
