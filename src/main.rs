@@ -34,16 +34,18 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = Args::parse();
     tracing::info!("Starting Stargem backend (tick_rate={} Hz)", args.tick_rate);
 
+    let quic_addr = args.quic_addr.clone();
+    let grpc_addr = args.grpc_addr.clone();
     let tick_rate = args.tick_rate;
 
     let quic_handle = tokio::spawn(async move {
-        transport::quic::serve(&args.quic_addr, tick_rate)
+        transport::quic::serve(&quic_addr, tick_rate)
             .await
             .expect("QUIC server failed");
     });
 
-    tracing::info!("gRPC server listening on {}", args.grpc_addr);
-    tracing::info!("QUIC server listening on {}", args.quic_addr);
+    tracing::info!("gRPC server listening on {}", grpc_addr);
+    tracing::info!("QUIC server listening on {}", quic_addr);
 
     quic_handle.await?;
     Ok(())
