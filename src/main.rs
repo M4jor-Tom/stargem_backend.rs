@@ -21,7 +21,7 @@ struct Args {
     tick_rate: u64,
 
     /// Database connection URL
-    #[arg(long, env = "DATABASE_URL")]
+    #[arg(long)]
     database_url: Option<String>,
 }
 
@@ -45,6 +45,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     tracing::info!("gRPC server listening on {}", args.grpc_addr);
     tracing::info!("QUIC server listening on {}", args.quic_addr);
 
-    quic_handle.await??;
+    quic_handle.await?;
     Ok(())
 }
