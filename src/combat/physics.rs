@@ -7,7 +7,7 @@ pub struct PhysicsState {
     pub rotation: [f32; 4],
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Deserialize)]
 pub struct ShipInput {
     pub throttle: f32,
     pub yaw: f32,
