@@ -1,6 +1,5 @@
 use crate::combat::tick::{CombatTickLoop, TickSnapshot};
 use quinn::{Endpoint, ServerConfig};
-use rustls::pki_types::{CertificateDer, PrivateKeyDer};
 use std::sync::Arc;
 use tokio::sync::mpsc;
 
@@ -45,13 +44,14 @@ pub async fn serve(addr: &str, tick_rate: u64) -> Result<(), Box<dyn std::error:
 }
 
 fn make_server_config() -> Result<ServerConfig, Box<dyn std::error::Error>> {
-    let cert = rcgen::generate_simple_self_signed(vec!["localhost".into()])?;
-    let cert_der = CertificateDer::from(cert.serialize_der()?);
-    let key_der = PrivateKeyDer::Pkcs8(cert.serialize_private_key_der().into());
+    let rcgen_cert = rcgen::generate_simple_self_signed(vec!["localhost".into()])?;
+    let cert = rustls::Certificate(rcgen_cert.serialize_der()?);
+    let key = rustls::PrivateKey(rcgen_cert.serialize_private_key_der().to_vec());
 
     let tls_config = rustls::ServerConfig::builder()
+        .with_safe_defaults()
         .with_no_client_auth()
-        .with_single_cert(vec![cert_der], key_der)?;
+        .with_single_cert(vec![cert], key)?;
 
     Ok(ServerConfig::with_crypto(Arc::new(tls_config)))
 }

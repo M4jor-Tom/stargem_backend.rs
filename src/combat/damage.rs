@@ -121,8 +121,8 @@ mod tests {
     fn test_electromagnetic_vs_shield() {
         let mult = DamageMultipliers::default();
         let result = apply_damage(DamageType::Electromagnetic, 100.0, 100.0, 100.0, &mult);
-        assert!(result.shield_remaining < 100.0);
-        assert_eq!(result.armor_remaining, 100.0);
+        assert_eq!(result.shield_remaining, 0.0);
+        assert_eq!(result.armor_remaining, 75.0);
     }
 
     #[test]
