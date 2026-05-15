@@ -40,7 +40,7 @@
         devShells.default = pkgs.mkShell {
           name = "stargem-backend";
           buildInputs = with pkgs; [
-            rustToolchain protobuf openssl pkg-config sqlx-cli clang
+            rustToolchain protobuf openssl pkg-config sqlx-cli clang just
           ];
           shellHook = ''
             export PROTOC="${pkgs.protobuf}/bin/protoc"
