@@ -9,13 +9,9 @@
       url = "github:ipetkov/crane";
       inputs.nixpkgs.follows = "nixpkgs";
     };
-    stargem-protos = {
-      url = "github:M4jor-Tom/stargem_protos";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
   };
 
-  outputs = { self, nixpkgs, flake-utils, rust-overlay, crane, stargem-protos }:
+  outputs = { self, nixpkgs, flake-utils, rust-overlay, crane }:
     flake-utils.lib.eachDefaultSystem (system:
       let
         pkgs = import nixpkgs {
@@ -28,8 +24,7 @@
         craneLib = crane.lib.${system}.overrideToolchain rustToolchain;
 
         commonArgs = {
-          PROTO_SRC = "${stargem-protos}";
-          nativeBuildInputs = with pkgs; [ protobuf pkg-config ];
+          nativeBuildInputs = with pkgs; [ pkg-config ];
           buildInputs = with pkgs; [ openssl clang ];
         };
 
@@ -48,17 +43,15 @@
           buildInputs = with pkgs; [
             rustToolchain protobuf openssl pkg-config sqlx-cli clang
           ];
-          PROTO_SRC = "${stargem-protos}";
           shellHook = ''
             export PROTOC="${pkgs.protobuf}/bin/protoc"
             export PROTOC_INCLUDE="${pkgs.protobuf}/include"
-            export PROTO_SRC="${stargem-protos}"
           '';
         };
 
         packages.default = backend;
         packages.dockerImage = pkgs.callPackage ./image.nix {
-          inherit craneLib stargem-protos;
+          inherit craneLib;
         };
       });
 }

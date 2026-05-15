@@ -1,10 +1,9 @@
-{ pkgs, craneLib, stargem-protos }:
+{ pkgs, craneLib }:
 
 let
   backend = craneLib.buildPackage {
     src = craneLib.cleanCargoSource ./.;
-    PROTO_SRC = "${stargem-protos}";
-    nativeBuildInputs = with pkgs; [ protobuf pkg-config ];
+    nativeBuildInputs = with pkgs; [ pkg-config ];
     buildInputs = with pkgs; [ openssl clang ];
   };
 in

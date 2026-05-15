@@ -1,4 +1,5 @@
 mod combat;
+mod proto_gen;
 mod ship;
 mod transport;
 

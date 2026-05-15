@@ -1,0 +1,12 @@
+#[path = "stargem.auth.rs"]
+pub mod auth;
+#[path = "stargem.hangar.rs"]
+pub mod hangar;
+#[path = "stargem.loadout.rs"]
+pub mod loadout;
+#[path = "stargem.match_history.rs"]
+pub mod match_history;
+#[path = "stargem.matchmaking.rs"]
+pub mod matchmaking;
+#[path = "stargem.shop.rs"]
+pub mod shop;

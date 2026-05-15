@@ -1,7 +1,8 @@
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let proto_root = std::path::PathBuf::from(
-        std::env::var("PROTO_SRC").expect("PROTO_SRC must be set"),
-    );
+    let proto_root = match std::env::var("PROTO_SRC") {
+        Ok(val) => std::path::PathBuf::from(val),
+        Err(_) => return Ok(()),
+    };
 
     let grpc_protos = &[
         proto_root.join("grpc/auth.proto"),
@@ -20,11 +21,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     tonic_build::configure()
         .build_server(true)
         .build_client(false)
+        .out_dir("src/proto_gen/grpc")
         .compile(grpc_protos, &[proto_root.clone()])?;
 
     tonic_build::configure()
         .build_server(false)
         .build_client(false)
+        .out_dir("src/proto_gen/quic")
         .compile(quic_protos, &[proto_root])?;
 
     Ok(())
