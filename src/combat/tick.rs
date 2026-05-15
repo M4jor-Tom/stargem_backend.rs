@@ -94,7 +94,9 @@ impl CombatTickLoop {
                 }
             }
 
-            let mut damage_events = Vec::new();
+            if self.players.is_empty() {
+                continue;
+            }
 
             for (_, player) in self.players.iter_mut() {
                 player.physics.update(&player.input, &player.stats, dt);
@@ -103,7 +105,7 @@ impl CombatTickLoop {
             let snapshot = TickSnapshot {
                 tick_number: self.tick_number,
                 players: self.players.values().cloned().collect(),
-                damage_events,
+                damage_events: Vec::new(),
             };
 
             if self.snapshot_tx.try_send(snapshot).is_err() {

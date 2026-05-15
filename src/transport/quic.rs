@@ -4,7 +4,11 @@ use std::sync::Arc;
 use tokio::sync::mpsc;
 
 pub async fn serve(addr: &str, tick_rate: u64) -> Result<(), Box<dyn std::error::Error>> {
-    let (snapshot_tx, _snapshot_rx) = mpsc::channel::<TickSnapshot>(256);
+    let (snapshot_tx, mut snapshot_rx) = mpsc::channel::<TickSnapshot>(256);
+    tokio::spawn(async move {
+        while snapshot_rx.recv().await.is_some() {}
+    });
+
     let (input_tx, input_rx) = mpsc::channel::<(String, crate::combat::physics::ShipInput)>(1024);
 
     let mut tick_loop = CombatTickLoop::new(tick_rate, snapshot_tx, input_rx);
