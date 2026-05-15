@@ -22,7 +22,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .build_server(true)
         .build_client(false)
         .out_dir("src/proto_gen/grpc")
-        .compile(grpc_protos, &[proto_root.clone()])?;
+        .compile(grpc_protos, std::slice::from_ref(&proto_root))?;
 
     tonic_build::configure()
         .build_server(false)
