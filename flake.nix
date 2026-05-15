@@ -7,7 +7,6 @@
     rust-overlay.url = "github:oxalica/rust-overlay";
     crane = {
       url = "github:ipetkov/crane";
-      inputs.nixpkgs.follows = "nixpkgs";
     };
   };
 
@@ -21,7 +20,7 @@
         rustToolchain = pkgs.rust-bin.stable.latest.default.override {
           extensions = [ "rust-src" "clippy" "rustfmt" ];
         };
-        craneLib = crane.lib.${system}.overrideToolchain rustToolchain;
+        craneLib = (crane.mkLib pkgs).overrideToolchain rustToolchain;
 
         commonArgs = {
           nativeBuildInputs = with pkgs; [ pkg-config ];
