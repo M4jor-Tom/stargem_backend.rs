@@ -38,10 +38,8 @@ impl PhysicsState {
         self.velocity[1] += forward[1] * thrust * dt;
         self.velocity[2] += forward[2] * thrust * dt;
 
-        let current_speed = (self.velocity[0].powi(2)
-            + self.velocity[1].powi(2)
-            + self.velocity[2].powi(2))
-        .sqrt();
+        let current_speed =
+            (self.velocity[0].powi(2) + self.velocity[1].powi(2) + self.velocity[2].powi(2)).sqrt();
         if current_speed > speed_cap {
             let scale = speed_cap / current_speed;
             self.velocity[0] *= scale;
@@ -54,7 +52,11 @@ impl PhysicsState {
         self.position[2] += self.velocity[2] * dt;
 
         let agility = stats.agility;
-        self.apply_rotation(input.yaw * agility * dt, input.pitch * agility * dt, input.roll * agility * dt);
+        self.apply_rotation(
+            input.yaw * agility * dt,
+            input.pitch * agility * dt,
+            input.roll * agility * dt,
+        );
     }
 
     fn forward_vector(&self) -> [f32; 3] {
@@ -70,19 +72,17 @@ impl PhysicsState {
         let qy = quaternion_from_axis_angle([0.0, 1.0, 0.0], yaw);
         let qp = quaternion_from_axis_angle([1.0, 0.0, 0.0], pitch);
         let qr = quaternion_from_axis_angle([0.0, 0.0, 1.0], roll);
-        self.rotation = quaternion_multiply(&self.rotation, &quaternion_multiply(&qy, &quaternion_multiply(&qp, &qr)));
+        self.rotation = quaternion_multiply(
+            &self.rotation,
+            &quaternion_multiply(&qy, &quaternion_multiply(&qp, &qr)),
+        );
     }
 }
 
 fn quaternion_from_axis_angle(axis: [f32; 3], angle: f32) -> [f32; 4] {
     let half = angle * 0.5;
     let s = half.sin();
-    [
-        axis[0] * s,
-        axis[1] * s,
-        axis[2] * s,
-        half.cos(),
-    ]
+    [axis[0] * s, axis[1] * s, axis[2] * s, half.cos()]
 }
 
 fn quaternion_multiply(a: &[f32; 4], b: &[f32; 4]) -> [f32; 4] {

@@ -99,7 +99,8 @@ pub fn apply_damage(
         armor_remaining = (armor_remaining - armor_damage).max(0.0);
     }
 
-    let total_damage_dealt = (current_shield - shield_remaining) + (current_armor - armor_remaining);
+    let total_damage_dealt =
+        (current_shield - shield_remaining) + (current_armor - armor_remaining);
     let mitigated = (raw_amount - total_damage_dealt).max(0.0);
 
     DamageResult {

@@ -67,31 +67,19 @@ pub mod loadout_service_server {
         async fn equip_passive_module(
             &self,
             request: tonic::Request<super::EquipPassiveModuleRequest>,
-        ) -> std::result::Result<
-            tonic::Response<super::EquipLoadoutResponse>,
-            tonic::Status,
-        >;
+        ) -> std::result::Result<tonic::Response<super::EquipLoadoutResponse>, tonic::Status>;
         async fn equip_active_module(
             &self,
             request: tonic::Request<super::EquipActiveModuleRequest>,
-        ) -> std::result::Result<
-            tonic::Response<super::EquipLoadoutResponse>,
-            tonic::Status,
-        >;
+        ) -> std::result::Result<tonic::Response<super::EquipLoadoutResponse>, tonic::Status>;
         async fn equip_weapon(
             &self,
             request: tonic::Request<super::EquipWeaponRequest>,
-        ) -> std::result::Result<
-            tonic::Response<super::EquipLoadoutResponse>,
-            tonic::Status,
-        >;
+        ) -> std::result::Result<tonic::Response<super::EquipLoadoutResponse>, tonic::Status>;
         async fn equip_missile(
             &self,
             request: tonic::Request<super::EquipMissileRequest>,
-        ) -> std::result::Result<
-            tonic::Response<super::EquipLoadoutResponse>,
-            tonic::Status,
-        >;
+        ) -> std::result::Result<tonic::Response<super::EquipLoadoutResponse>, tonic::Status>;
     }
     #[derive(Debug)]
     pub struct LoadoutServiceServer<T: LoadoutService> {
@@ -116,10 +104,7 @@ pub mod loadout_service_server {
                 max_encoding_message_size: None,
             }
         }
-        pub fn with_interceptor<F>(
-            inner: T,
-            interceptor: F,
-        ) -> InterceptedService<Self, F>
+        pub fn with_interceptor<F>(inner: T, interceptor: F) -> InterceptedService<Self, F>
         where
             F: tonic::service::Interceptor,
         {
@@ -175,23 +160,19 @@ pub mod loadout_service_server {
                 "/stargem.loadout.LoadoutService/EquipPassiveModule" => {
                     #[allow(non_camel_case_types)]
                     struct EquipPassiveModuleSvc<T: LoadoutService>(pub Arc<T>);
-                    impl<
-                        T: LoadoutService,
-                    > tonic::server::UnaryService<super::EquipPassiveModuleRequest>
-                    for EquipPassiveModuleSvc<T> {
+                    impl<T: LoadoutService>
+                        tonic::server::UnaryService<super::EquipPassiveModuleRequest>
+                        for EquipPassiveModuleSvc<T>
+                    {
                         type Response = super::EquipLoadoutResponse;
-                        type Future = BoxFuture<
-                            tonic::Response<Self::Response>,
-                            tonic::Status,
-                        >;
+                        type Future = BoxFuture<tonic::Response<Self::Response>, tonic::Status>;
                         fn call(
                             &mut self,
                             request: tonic::Request<super::EquipPassiveModuleRequest>,
                         ) -> Self::Future {
                             let inner = Arc::clone(&self.0);
                             let fut = async move {
-                                <T as LoadoutService>::equip_passive_module(&inner, request)
-                                    .await
+                                <T as LoadoutService>::equip_passive_module(&inner, request).await
                             };
                             Box::pin(fut)
                         }
@@ -222,23 +203,19 @@ pub mod loadout_service_server {
                 "/stargem.loadout.LoadoutService/EquipActiveModule" => {
                     #[allow(non_camel_case_types)]
                     struct EquipActiveModuleSvc<T: LoadoutService>(pub Arc<T>);
-                    impl<
-                        T: LoadoutService,
-                    > tonic::server::UnaryService<super::EquipActiveModuleRequest>
-                    for EquipActiveModuleSvc<T> {
+                    impl<T: LoadoutService>
+                        tonic::server::UnaryService<super::EquipActiveModuleRequest>
+                        for EquipActiveModuleSvc<T>
+                    {
                         type Response = super::EquipLoadoutResponse;
-                        type Future = BoxFuture<
-                            tonic::Response<Self::Response>,
-                            tonic::Status,
-                        >;
+                        type Future = BoxFuture<tonic::Response<Self::Response>, tonic::Status>;
                         fn call(
                             &mut self,
                             request: tonic::Request<super::EquipActiveModuleRequest>,
                         ) -> Self::Future {
                             let inner = Arc::clone(&self.0);
                             let fut = async move {
-                                <T as LoadoutService>::equip_active_module(&inner, request)
-                                    .await
+                                <T as LoadoutService>::equip_active_module(&inner, request).await
                             };
                             Box::pin(fut)
                         }
@@ -269,15 +246,11 @@ pub mod loadout_service_server {
                 "/stargem.loadout.LoadoutService/EquipWeapon" => {
                     #[allow(non_camel_case_types)]
                     struct EquipWeaponSvc<T: LoadoutService>(pub Arc<T>);
-                    impl<
-                        T: LoadoutService,
-                    > tonic::server::UnaryService<super::EquipWeaponRequest>
-                    for EquipWeaponSvc<T> {
+                    impl<T: LoadoutService> tonic::server::UnaryService<super::EquipWeaponRequest>
+                        for EquipWeaponSvc<T>
+                    {
                         type Response = super::EquipLoadoutResponse;
-                        type Future = BoxFuture<
-                            tonic::Response<Self::Response>,
-                            tonic::Status,
-                        >;
+                        type Future = BoxFuture<tonic::Response<Self::Response>, tonic::Status>;
                         fn call(
                             &mut self,
                             request: tonic::Request<super::EquipWeaponRequest>,
@@ -315,15 +288,11 @@ pub mod loadout_service_server {
                 "/stargem.loadout.LoadoutService/EquipMissile" => {
                     #[allow(non_camel_case_types)]
                     struct EquipMissileSvc<T: LoadoutService>(pub Arc<T>);
-                    impl<
-                        T: LoadoutService,
-                    > tonic::server::UnaryService<super::EquipMissileRequest>
-                    for EquipMissileSvc<T> {
+                    impl<T: LoadoutService> tonic::server::UnaryService<super::EquipMissileRequest>
+                        for EquipMissileSvc<T>
+                    {
                         type Response = super::EquipLoadoutResponse;
-                        type Future = BoxFuture<
-                            tonic::Response<Self::Response>,
-                            tonic::Status,
-                        >;
+                        type Future = BoxFuture<tonic::Response<Self::Response>, tonic::Status>;
                         fn call(
                             &mut self,
                             request: tonic::Request<super::EquipMissileRequest>,
@@ -358,18 +327,14 @@ pub mod loadout_service_server {
                     };
                     Box::pin(fut)
                 }
-                _ => {
-                    Box::pin(async move {
-                        Ok(
-                            http::Response::builder()
-                                .status(200)
-                                .header("grpc-status", "12")
-                                .header("content-type", "application/grpc")
-                                .body(empty_body())
-                                .unwrap(),
-                        )
-                    })
-                }
+                _ => Box::pin(async move {
+                    Ok(http::Response::builder()
+                        .status(200)
+                        .header("grpc-status", "12")
+                        .header("content-type", "application/grpc")
+                        .body(empty_body())
+                        .unwrap())
+                }),
             }
         }
     }

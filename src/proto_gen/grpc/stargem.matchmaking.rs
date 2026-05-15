@@ -51,24 +51,15 @@ pub mod matchmaking_service_server {
         async fn queue_for_match(
             &self,
             request: tonic::Request<super::QueueForMatchRequest>,
-        ) -> std::result::Result<
-            tonic::Response<super::QueueForMatchResponse>,
-            tonic::Status,
-        >;
+        ) -> std::result::Result<tonic::Response<super::QueueForMatchResponse>, tonic::Status>;
         async fn queue_status(
             &self,
             request: tonic::Request<super::QueueStatusRequest>,
-        ) -> std::result::Result<
-            tonic::Response<super::QueueStatusResponse>,
-            tonic::Status,
-        >;
+        ) -> std::result::Result<tonic::Response<super::QueueStatusResponse>, tonic::Status>;
         async fn leave_queue(
             &self,
             request: tonic::Request<super::LeaveQueueRequest>,
-        ) -> std::result::Result<
-            tonic::Response<super::LeaveQueueResponse>,
-            tonic::Status,
-        >;
+        ) -> std::result::Result<tonic::Response<super::LeaveQueueResponse>, tonic::Status>;
     }
     #[derive(Debug)]
     pub struct MatchmakingServiceServer<T: MatchmakingService> {
@@ -93,10 +84,7 @@ pub mod matchmaking_service_server {
                 max_encoding_message_size: None,
             }
         }
-        pub fn with_interceptor<F>(
-            inner: T,
-            interceptor: F,
-        ) -> InterceptedService<Self, F>
+        pub fn with_interceptor<F>(inner: T, interceptor: F) -> InterceptedService<Self, F>
         where
             F: tonic::service::Interceptor,
         {
@@ -152,23 +140,19 @@ pub mod matchmaking_service_server {
                 "/stargem.matchmaking.MatchmakingService/QueueForMatch" => {
                     #[allow(non_camel_case_types)]
                     struct QueueForMatchSvc<T: MatchmakingService>(pub Arc<T>);
-                    impl<
-                        T: MatchmakingService,
-                    > tonic::server::UnaryService<super::QueueForMatchRequest>
-                    for QueueForMatchSvc<T> {
+                    impl<T: MatchmakingService>
+                        tonic::server::UnaryService<super::QueueForMatchRequest>
+                        for QueueForMatchSvc<T>
+                    {
                         type Response = super::QueueForMatchResponse;
-                        type Future = BoxFuture<
-                            tonic::Response<Self::Response>,
-                            tonic::Status,
-                        >;
+                        type Future = BoxFuture<tonic::Response<Self::Response>, tonic::Status>;
                         fn call(
                             &mut self,
                             request: tonic::Request<super::QueueForMatchRequest>,
                         ) -> Self::Future {
                             let inner = Arc::clone(&self.0);
                             let fut = async move {
-                                <T as MatchmakingService>::queue_for_match(&inner, request)
-                                    .await
+                                <T as MatchmakingService>::queue_for_match(&inner, request).await
                             };
                             Box::pin(fut)
                         }
@@ -199,23 +183,19 @@ pub mod matchmaking_service_server {
                 "/stargem.matchmaking.MatchmakingService/QueueStatus" => {
                     #[allow(non_camel_case_types)]
                     struct QueueStatusSvc<T: MatchmakingService>(pub Arc<T>);
-                    impl<
-                        T: MatchmakingService,
-                    > tonic::server::UnaryService<super::QueueStatusRequest>
-                    for QueueStatusSvc<T> {
+                    impl<T: MatchmakingService>
+                        tonic::server::UnaryService<super::QueueStatusRequest>
+                        for QueueStatusSvc<T>
+                    {
                         type Response = super::QueueStatusResponse;
-                        type Future = BoxFuture<
-                            tonic::Response<Self::Response>,
-                            tonic::Status,
-                        >;
+                        type Future = BoxFuture<tonic::Response<Self::Response>, tonic::Status>;
                         fn call(
                             &mut self,
                             request: tonic::Request<super::QueueStatusRequest>,
                         ) -> Self::Future {
                             let inner = Arc::clone(&self.0);
                             let fut = async move {
-                                <T as MatchmakingService>::queue_status(&inner, request)
-                                    .await
+                                <T as MatchmakingService>::queue_status(&inner, request).await
                             };
                             Box::pin(fut)
                         }
@@ -246,23 +226,18 @@ pub mod matchmaking_service_server {
                 "/stargem.matchmaking.MatchmakingService/LeaveQueue" => {
                     #[allow(non_camel_case_types)]
                     struct LeaveQueueSvc<T: MatchmakingService>(pub Arc<T>);
-                    impl<
-                        T: MatchmakingService,
-                    > tonic::server::UnaryService<super::LeaveQueueRequest>
-                    for LeaveQueueSvc<T> {
+                    impl<T: MatchmakingService>
+                        tonic::server::UnaryService<super::LeaveQueueRequest> for LeaveQueueSvc<T>
+                    {
                         type Response = super::LeaveQueueResponse;
-                        type Future = BoxFuture<
-                            tonic::Response<Self::Response>,
-                            tonic::Status,
-                        >;
+                        type Future = BoxFuture<tonic::Response<Self::Response>, tonic::Status>;
                         fn call(
                             &mut self,
                             request: tonic::Request<super::LeaveQueueRequest>,
                         ) -> Self::Future {
                             let inner = Arc::clone(&self.0);
                             let fut = async move {
-                                <T as MatchmakingService>::leave_queue(&inner, request)
-                                    .await
+                                <T as MatchmakingService>::leave_queue(&inner, request).await
                             };
                             Box::pin(fut)
                         }
@@ -290,18 +265,14 @@ pub mod matchmaking_service_server {
                     };
                     Box::pin(fut)
                 }
-                _ => {
-                    Box::pin(async move {
-                        Ok(
-                            http::Response::builder()
-                                .status(200)
-                                .header("grpc-status", "12")
-                                .header("content-type", "application/grpc")
-                                .body(empty_body())
-                                .unwrap(),
-                        )
-                    })
-                }
+                _ => Box::pin(async move {
+                    Ok(http::Response::builder()
+                        .status(200)
+                        .header("grpc-status", "12")
+                        .header("content-type", "application/grpc")
+                        .body(empty_body())
+                        .unwrap())
+                }),
             }
         }
     }
@@ -327,8 +298,7 @@ pub mod matchmaking_service_server {
             write!(f, "{:?}", self.0)
         }
     }
-    impl<T: MatchmakingService> tonic::server::NamedService
-    for MatchmakingServiceServer<T> {
+    impl<T: MatchmakingService> tonic::server::NamedService for MatchmakingServiceServer<T> {
         const NAME: &'static str = "stargem.matchmaking.MatchmakingService";
     }
 }

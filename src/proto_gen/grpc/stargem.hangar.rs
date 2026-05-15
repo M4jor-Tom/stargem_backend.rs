@@ -44,17 +44,11 @@ pub mod hangar_service_server {
         async fn list_hangar(
             &self,
             request: tonic::Request<super::ListHangarRequest>,
-        ) -> std::result::Result<
-            tonic::Response<super::ListHangarResponse>,
-            tonic::Status,
-        >;
+        ) -> std::result::Result<tonic::Response<super::ListHangarResponse>, tonic::Status>;
         async fn assign_ship_to_slot(
             &self,
             request: tonic::Request<super::AssignShipToSlotRequest>,
-        ) -> std::result::Result<
-            tonic::Response<super::AssignShipToSlotResponse>,
-            tonic::Status,
-        >;
+        ) -> std::result::Result<tonic::Response<super::AssignShipToSlotResponse>, tonic::Status>;
     }
     #[derive(Debug)]
     pub struct HangarServiceServer<T: HangarService> {
@@ -79,10 +73,7 @@ pub mod hangar_service_server {
                 max_encoding_message_size: None,
             }
         }
-        pub fn with_interceptor<F>(
-            inner: T,
-            interceptor: F,
-        ) -> InterceptedService<Self, F>
+        pub fn with_interceptor<F>(inner: T, interceptor: F) -> InterceptedService<Self, F>
         where
             F: tonic::service::Interceptor,
         {
@@ -138,15 +129,9 @@ pub mod hangar_service_server {
                 "/stargem.hangar.HangarService/ListHangar" => {
                     #[allow(non_camel_case_types)]
                     struct ListHangarSvc<T: HangarService>(pub Arc<T>);
-                    impl<
-                        T: HangarService,
-                    > tonic::server::UnaryService<super::ListHangarRequest>
-                    for ListHangarSvc<T> {
+                    impl<T: HangarService> tonic::server::UnaryService<super::ListHangarRequest> for ListHangarSvc<T> {
                         type Response = super::ListHangarResponse;
-                        type Future = BoxFuture<
-                            tonic::Response<Self::Response>,
-                            tonic::Status,
-                        >;
+                        type Future = BoxFuture<tonic::Response<Self::Response>, tonic::Status>;
                         fn call(
                             &mut self,
                             request: tonic::Request<super::ListHangarRequest>,
@@ -184,23 +169,19 @@ pub mod hangar_service_server {
                 "/stargem.hangar.HangarService/AssignShipToSlot" => {
                     #[allow(non_camel_case_types)]
                     struct AssignShipToSlotSvc<T: HangarService>(pub Arc<T>);
-                    impl<
-                        T: HangarService,
-                    > tonic::server::UnaryService<super::AssignShipToSlotRequest>
-                    for AssignShipToSlotSvc<T> {
+                    impl<T: HangarService>
+                        tonic::server::UnaryService<super::AssignShipToSlotRequest>
+                        for AssignShipToSlotSvc<T>
+                    {
                         type Response = super::AssignShipToSlotResponse;
-                        type Future = BoxFuture<
-                            tonic::Response<Self::Response>,
-                            tonic::Status,
-                        >;
+                        type Future = BoxFuture<tonic::Response<Self::Response>, tonic::Status>;
                         fn call(
                             &mut self,
                             request: tonic::Request<super::AssignShipToSlotRequest>,
                         ) -> Self::Future {
                             let inner = Arc::clone(&self.0);
                             let fut = async move {
-                                <T as HangarService>::assign_ship_to_slot(&inner, request)
-                                    .await
+                                <T as HangarService>::assign_ship_to_slot(&inner, request).await
                             };
                             Box::pin(fut)
                         }
@@ -228,18 +209,14 @@ pub mod hangar_service_server {
                     };
                     Box::pin(fut)
                 }
-                _ => {
-                    Box::pin(async move {
-                        Ok(
-                            http::Response::builder()
-                                .status(200)
-                                .header("grpc-status", "12")
-                                .header("content-type", "application/grpc")
-                                .body(empty_body())
-                                .unwrap(),
-                        )
-                    })
-                }
+                _ => Box::pin(async move {
+                    Ok(http::Response::builder()
+                        .status(200)
+                        .header("grpc-status", "12")
+                        .header("content-type", "application/grpc")
+                        .body(empty_body())
+                        .unwrap())
+                }),
             }
         }
     }
