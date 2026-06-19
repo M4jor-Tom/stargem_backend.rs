@@ -326,6 +326,63 @@ mod tests {
     }
 
     #[test]
+    fn test_active_match_blocks_new_match() {
+        let mut mgr = MatchManager::new(4, 8);
+        for _ in 0..8 {
+            mgr.enqueue(Uuid::new_v4());
+        }
+        assert!(mgr.try_start_match().is_some());
+        for _ in 0..4 {
+            mgr.enqueue(Uuid::new_v4());
+        }
+        assert!(mgr.try_start_match().is_none());
+    }
+
+    #[test]
+    fn test_empty_queue_try_start_match_returns_none() {
+        let mut mgr = MatchManager::new(4, 16);
+        assert!(mgr.try_start_match().is_none());
+    }
+
+    #[test]
+    fn test_on_tick_after_finished_is_noop() {
+        let p: Vec<Uuid> = (0..2).map(|_| Uuid::new_v4()).collect();
+        let mut tdm = TeamDeathmatch::new(p.clone(), 1, 600.0);
+        tdm.on_player_death(p[1], Some(p[0]));
+        assert!(tdm.is_finished());
+        let before = tdm.elapsed_secs;
+        tdm.on_tick(10.0);
+        assert_eq!(tdm.elapsed_secs, before);
+    }
+
+    #[test]
+    fn test_dequeue_removes_correct_player_and_shifts_positions() {
+        let mut mgr = MatchManager::new(4, 16);
+        let players: Vec<Uuid> = (0..5).map(|_| Uuid::new_v4()).collect();
+        for &p in &players {
+            mgr.enqueue(p);
+        }
+        assert_eq!(mgr.queue_size(), 5);
+        assert!(mgr.dequeue(&players[2]));
+        assert_eq!(mgr.queue_size(), 4);
+        assert_eq!(mgr.queue_position(&players[0]), Some(0));
+        assert_eq!(mgr.queue_position(&players[1]), Some(1));
+        assert_eq!(mgr.queue_position(&players[2]), None);
+        assert_eq!(mgr.queue_position(&players[3]), Some(2));
+        assert_eq!(mgr.queue_position(&players[4]), Some(3));
+    }
+
+    #[test]
+    fn test_match_duration_tracking() {
+        let p: Vec<Uuid> = (0..2).map(|_| Uuid::new_v4()).collect();
+        let mut tdm = TeamDeathmatch::new(p.clone(), 50, 600.0);
+        for _ in 0..10 {
+            tdm.on_tick(1.0);
+        }
+        assert_eq!(tdm.elapsed_secs, 10.0);
+    }
+
+    #[test]
     fn test_damage_stats_accumulate_on_death() {
         let players = vec![Uuid::from_u128(1), Uuid::from_u128(2)];
         let mut match_ = TeamDeathmatch::new(players.clone(), 50, 600.0);

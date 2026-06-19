@@ -44,9 +44,9 @@ impl ActiveModuleState {
                         };
                         Ok(self.energy_cost)
                     }
-                    ActivationFlow::Ongoing { .. } => {
+                    ActivationFlow::Ongoing { drain_per_second } => {
                         self.status = ActivationStatus::Active {
-                            ongoing_drain_per_sec: self.energy_cost,
+                            ongoing_drain_per_sec: *drain_per_second,
                         };
                         Ok(self.energy_cost)
                     }

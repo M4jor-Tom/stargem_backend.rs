@@ -72,6 +72,15 @@ mod tests {
         );
         assert_eq!(module.activate(100.0), Ok(20.0));
         assert!(module.is_active());
+        if let ActivationStatus::Active { ongoing_drain_per_sec } = &module.status {
+            assert!(
+                (*ongoing_drain_per_sec - 10.0).abs() < f32::EPSILON,
+                "ongoing drain should use drain_per_second (10.0), got {}",
+                ongoing_drain_per_sec
+            );
+        } else {
+            panic!("expected Active status after activating ongoing module");
+        }
 
         module.deactivate();
         assert!(matches!(module.status, ActivationStatus::Cooldown { .. }));
