@@ -129,6 +129,9 @@ impl ShopService for ShopHandler {
             "INSERT INTO player_ships (id, user_id, ship_model_id) VALUES ($1, $2, $3)"
         )
         .bind(player_ship_id)
+        // FIXME: Bug #3 — uses Uuid::nil() as a placeholder user_id.
+        // The auth middleware needs to extract the authenticated user's ID
+        // from the gRPC context. See docs/superpowers/specs/2026-06-19-missing-test-scenarios-design.md
         .bind(Uuid::nil())
         .bind(ship_model_id)
         .execute(pool)
@@ -318,6 +321,25 @@ pub async fn serve(addr: &str, state: Arc<AppState>) -> Result<(), Box<dyn std::
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[tokio::test]
+    async fn test_buy_ship_without_db_returns_failed_precondition() {
+        let app_state = Arc::new(AppState::new(None));
+        let handler = ShopHandler { state: app_state };
+
+        let request_id = Uuid::new_v4();
+        let req = Request::new(BuyShipRequest {
+            ship_model_id: request_id.to_string(),
+        });
+
+        let result = handler.buy_ship(req).await;
+        match result {
+            Ok(_) => panic!("buy_ship should fail without DB"),
+            Err(status) => {
+                assert_eq!(status.code(), tonic::Code::FailedPrecondition);
+            }
+        }
+    }
 
     #[test]
     fn test_app_state_new_no_pool() {
