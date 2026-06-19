@@ -97,6 +97,7 @@ pub struct PlayerShip {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use serde_json;
 
     #[test]
     fn test_ship_size_from_str_valid() {
@@ -136,6 +137,56 @@ mod tests {
     fn test_ship_role_from_str_invalid() {
         assert_eq!(ShipRole::from_str("unknown"), None);
         assert_eq!(ShipRole::from_str(""), None);
+    }
+
+    #[test]
+    fn test_ship_size_parsing_all_variants() {
+        assert_eq!(ShipSize::from_str("Frigate"), Some(ShipSize::Frigate));
+        assert_eq!(ShipSize::from_str("Fighter"), Some(ShipSize::Fighter));
+        assert_eq!(ShipSize::from_str("Interceptor"), Some(ShipSize::Interceptor));
+    }
+
+    #[test]
+    fn test_ship_size_case_insensitivity() {
+        assert_eq!(ShipSize::from_str("FRIGATE"), Some(ShipSize::Frigate));
+        assert_eq!(ShipSize::from_str("frigate"), Some(ShipSize::Frigate));
+        assert_eq!(ShipSize::from_str("FrIgAtE"), Some(ShipSize::Frigate));
+    }
+
+    #[test]
+    fn test_ship_size_invalid_inputs() {
+        assert_eq!(ShipSize::from_str(""), None);
+        assert_eq!(ShipSize::from_str(" "), None);
+        assert_eq!(ShipSize::from_str("dreadnought"), None);
+        assert_eq!(ShipSize::from_str("123"), None);
+    }
+
+    #[test]
+    fn test_ship_size_serde_roundtrip() {
+        let original = ShipSize::Frigate;
+        let json = serde_json::to_string(&original).unwrap();
+        let deserialized: ShipSize = serde_json::from_str(&json).unwrap();
+        assert_eq!(original, deserialized);
+    }
+
+    #[test]
+    fn test_ship_role_serde_roundtrip_all_variants() {
+        let roles = vec![
+            ShipRole::Command,
+            ShipRole::CoverOps,
+            ShipRole::Ecm,
+            ShipRole::Engineer,
+            ShipRole::Guard,
+            ShipRole::Gunship,
+            ShipRole::LongRange,
+            ShipRole::Recon,
+            ShipRole::Tackler,
+        ];
+        for role in roles {
+            let json = serde_json::to_string(&role).unwrap();
+            let deserialized: ShipRole = serde_json::from_str(&json).unwrap();
+            assert_eq!(role, deserialized, "failed roundtrip for {:?}", role);
+        }
     }
 
     #[test]

@@ -119,6 +119,39 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn test_concurrent_authentications_produce_distinct_ids() {
+        let provider = std::sync::Arc::new(MockAuthProvider::new());
+        let mut handles = vec![];
+        for _ in 0..10 {
+            let p = provider.clone();
+            handles.push(tokio::spawn(async move {
+                p.authenticate("token").await.unwrap()
+            }));
+        }
+        let mut ids: Vec<Uuid> = vec![];
+        for h in handles {
+            ids.push(h.await.unwrap());
+        }
+        ids.sort();
+        ids.dedup();
+        assert_eq!(ids.len(), 10, "all 10 authentications should produce distinct user IDs");
+    }
+
+    #[tokio::test]
+    async fn test_empty_session_validation_returns_error() {
+        let provider = MockAuthProvider::new();
+        let result = provider.validate_session("").await;
+        assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_empty_token_still_succeeds_with_mock() {
+        let provider = MockAuthProvider::new();
+        let result = provider.authenticate("").await;
+        assert!(result.is_ok(), "MockAuthProvider should accept empty tokens");
+    }
+
+    #[tokio::test]
     async fn test_steam_auth_provider_returns_not_implemented() {
         let provider = SteamAuthProvider;
         assert!(matches!(

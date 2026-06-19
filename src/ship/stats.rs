@@ -119,6 +119,57 @@ mod tests {
     }
 
     #[test]
+    fn test_zero_modifier_module_produces_identical_stats() {
+        let modules = vec![PassiveModuleDef {
+            id: Uuid::from_u128(1),
+            model: 1,
+            module_type: PassiveModuleType::Shield,
+            shield_hp_modifier: 0.0,
+            armor_hp_modifier: 0.0,
+            energy_modifier: 0.0,
+            speed_modifier: 0.0,
+            agility_modifier: 0.0,
+        }];
+
+        let no_modules = PlayerShipStats::compute(&dummy_model(), &dummy_ship(), &[]);
+        let with_zero = PlayerShipStats::compute(&dummy_model(), &dummy_ship(), &modules);
+
+        assert!((no_modules.max_shield - with_zero.max_shield).abs() < 1e-4);
+        assert!((no_modules.max_armor - with_zero.max_armor).abs() < 1e-4);
+        assert!((no_modules.max_energy - with_zero.max_energy).abs() < 1e-4);
+    }
+
+    #[test]
+    fn test_additive_module_stacking() {
+        let modules = vec![
+            PassiveModuleDef {
+                id: Uuid::from_u128(1),
+                model: 1,
+                module_type: PassiveModuleType::Shield,
+                shield_hp_modifier: 0.5,
+                armor_hp_modifier: 0.0,
+                energy_modifier: 0.0,
+                speed_modifier: 0.0,
+                agility_modifier: 0.0,
+            },
+            PassiveModuleDef {
+                id: Uuid::from_u128(2),
+                model: 2,
+                module_type: PassiveModuleType::Shield,
+                shield_hp_modifier: 0.5,
+                armor_hp_modifier: 0.0,
+                energy_modifier: 0.0,
+                speed_modifier: 0.0,
+                agility_modifier: 0.0,
+            },
+        ];
+
+        let stats = PlayerShipStats::compute(&dummy_model(), &dummy_ship(), &modules);
+        assert!((stats.max_shield - 200.0).abs() < 1e-4,
+            "expected additive stacking (200), got {}", stats.max_shield);
+    }
+
+    #[test]
     fn test_compute_with_negative_multipliers() {
         let modules = vec![
             PassiveModuleDef {
