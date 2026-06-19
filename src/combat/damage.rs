@@ -18,14 +18,14 @@ impl DamageType {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct DamageMultipliers {
     pub electromagnetic: TypeMultipliers,
     pub kinetic: TypeMultipliers,
     pub thermic: TypeMultipliers,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct TypeMultipliers {
     pub shield: f32,
     pub armor: f32,
@@ -74,6 +74,7 @@ pub fn apply_damage(
     current_armor: f32,
     multipliers: &DamageMultipliers,
 ) -> DamageResult {
+    let raw_amount = raw_amount.max(0.0);
     let mult = match damage_type {
         DamageType::Electromagnetic => &multipliers.electromagnetic,
         DamageType::Kinetic => &multipliers.kinetic,
@@ -174,5 +175,61 @@ mod tests {
         assert!(result.ship_destroyed);
         assert_eq!(result.armor_remaining, 0.0);
         assert_eq!(result.mitigated, 400.0);
+    }
+
+    #[test]
+    fn test_negative_damage_clamped_to_zero() {
+        let mult = DamageMultipliers::default();
+        let result = apply_damage(DamageType::Thermic, -50.0, 100.0, 100.0, &mult);
+        assert!((result.shield_remaining - 100.0).abs() < 1e-4, "negative damage should not heal shield");
+        assert!((result.armor_remaining - 100.0).abs() < 1e-4, "negative damage should not heal armor");
+    }
+
+    #[test]
+    fn test_all_damage_types_with_zero_shield() {
+        let mult = DamageMultipliers::default();
+
+        let em = apply_damage(DamageType::Electromagnetic, 100.0, 0.0, 100.0, &mult);
+        assert!((em.armor_remaining - 25.0).abs() < 1e-4, "EM: 100*1.5 shield → 150*0.5 armor = 75 damage, 25 remaining");
+
+        let kin = apply_damage(DamageType::Kinetic, 100.0, 0.0, 100.0, &mult);
+        assert!((kin.armor_remaining - 25.0).abs() < 1e-4, "Kinetic: 100*0.5 shield → 50*1.5 armor = 75 damage, 25 remaining");
+
+        let therm = apply_damage(DamageType::Thermic, 50.0, 0.0, 100.0, &mult);
+        assert!((therm.armor_remaining - 50.0).abs() < 1e-4, "Thermic: 50*1.0 shield → 50*1.0 armor = 50 damage, 50 remaining");
+    }
+
+    #[test]
+    fn test_load_damage_multipliers_missing_file_returns_defaults() {
+        let result = load_damage_multipliers("/nonexistent/path/to/file.toml");
+        assert_eq!(result, DamageMultipliers::default());
+    }
+
+    #[test]
+    fn test_load_damage_multipliers_valid_file() {
+        let toml_content = r#"
+[electromagnetic]
+shield = 2.0
+armor = 0.25
+
+[kinetic]
+shield = 0.25
+armor = 2.0
+
+[thermic]
+shield = 1.0
+armor = 1.0
+"#;
+        let dir = std::env::temp_dir();
+        let path = dir.join("test_damage_mult.toml");
+        std::fs::write(&path, toml_content).unwrap();
+
+        let result = load_damage_multipliers(path.to_str().unwrap());
+        std::fs::remove_file(&path).unwrap();
+
+        assert!((result.electromagnetic.shield - 2.0).abs() < 1e-6);
+        assert!((result.electromagnetic.armor - 0.25).abs() < 1e-6);
+        assert!((result.kinetic.shield - 0.25).abs() < 1e-6);
+        assert!((result.kinetic.armor - 2.0).abs() < 1e-6);
     }
 }
