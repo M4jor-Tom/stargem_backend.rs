@@ -191,4 +191,67 @@ mod tests {
         assert!(s.velocity[0].abs() < 10.0, "drag should reduce velocity");
         assert!(s.velocity[0] > 0.0, "drag should not reverse velocity");
     }
+
+    #[test]
+    fn test_dt_zero_produces_no_change() {
+        let mut s = PhysicsState::new();
+        s.velocity = [10.0, 20.0, 30.0];
+        let input = ShipInput { throttle: 1.0, yaw: 0.5, pitch: 0.3, roll: 0.1 };
+        let stats = dummy_stats();
+        let original = s.clone();
+        s.update(&input, &stats, 0.0);
+        assert_eq!(s.position, original.position, "position should not change with dt=0");
+        assert_eq!(s.velocity, original.velocity, "velocity should not change with dt=0");
+        assert_eq!(s.rotation, original.rotation, "rotation should not change with dt=0");
+    }
+
+    #[test]
+    fn test_negative_dt_clamped() {
+        let mut s = PhysicsState::new();
+        s.velocity = [10.0, 0.0, 0.0];
+        let input = ShipInput { throttle: 0.0, yaw: 0.0, pitch: 0.0, roll: 0.0 };
+        let stats = dummy_stats();
+        s.update(&input, &stats, -1.0);
+        let speed = s.velocity.iter().map(|v| v.powi(2)).sum::<f32>().sqrt();
+        assert!(speed.is_finite(), "speed should be finite, got {}", speed);
+        assert!(
+            speed <= stats.speed + 1e-6,
+            "speed {} should not exceed speed_cap {}",
+            speed,
+            stats.speed,
+        );
+    }
+
+    #[test]
+    fn test_large_dt_numerically_stable() {
+        let mut s = PhysicsState::new();
+        s.velocity = [10.0, 20.0, 30.0];
+        let input = ShipInput { throttle: 1.0, yaw: 0.1, pitch: 0.2, roll: 0.0 };
+        let stats = dummy_stats();
+        s.update(&input, &stats, 1000.0);
+        for c in s.position.iter() {
+            assert!(c.is_finite(), "position component should be finite, got {}", c);
+        }
+        for c in s.velocity.iter() {
+            assert!(c.is_finite(), "velocity component should be finite, got {}", c);
+        }
+        for c in s.rotation.iter() {
+            assert!(c.is_finite(), "rotation component should be finite, got {}", c);
+        }
+    }
+
+    #[test]
+    fn test_forward_vector_unit_length_after_rotation() {
+        let mut s = PhysicsState::new();
+        let input = ShipInput { throttle: 0.0, yaw: 1.0, pitch: 0.5, roll: 0.3 };
+        let stats = dummy_stats();
+        s.update(&input, &stats, 1.0);
+        let fwd = s.forward_vector();
+        let mag = (fwd[0].powi(2) + fwd[1].powi(2) + fwd[2].powi(2)).sqrt();
+        assert!(
+            (mag - 1.0).abs() < 1e_6,
+            "forward vector magnitude {}, expected 1.0",
+            mag,
+        );
+    }
 }
