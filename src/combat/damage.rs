@@ -1,5 +1,4 @@
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum DamageType {
@@ -131,5 +130,49 @@ mod tests {
         let mult = DamageMultipliers::default();
         let result = apply_damage(DamageType::Kinetic, 200.0, 0.0, 100.0, &mult);
         assert!(result.ship_destroyed);
+    }
+
+    #[test]
+    fn test_thermic_has_equal_multipliers() {
+        let mult = DamageMultipliers::default();
+        let result = apply_damage(DamageType::Thermic, 50.0, 100.0, 100.0, &mult);
+        assert_eq!(result.shield_remaining, 50.0);
+        assert_eq!(result.armor_remaining, 100.0);
+        assert!(!result.ship_destroyed);
+    }
+
+    #[test]
+    fn test_damage_bleeds_through_shield_into_armor() {
+        let mult = DamageMultipliers::default();
+        let result = apply_damage(DamageType::Kinetic, 200.0, 50.0, 100.0, &mult);
+        assert_eq!(result.shield_remaining, 0.0);
+        assert_eq!(result.armor_remaining, 25.0);
+    }
+
+    #[test]
+    fn test_zero_damage_no_change() {
+        let mult = DamageMultipliers::default();
+        let result = apply_damage(DamageType::Electromagnetic, 0.0, 100.0, 100.0, &mult);
+        assert_eq!(result.shield_remaining, 100.0);
+        assert_eq!(result.armor_remaining, 100.0);
+        assert!(!result.ship_destroyed);
+    }
+
+    #[test]
+    fn test_exact_shield_absorption() {
+        let mult = DamageMultipliers::default();
+        let result = apply_damage(DamageType::Thermic, 100.0, 100.0, 100.0, &mult);
+        assert_eq!(result.shield_remaining, 0.0);
+        assert_eq!(result.armor_remaining, 100.0);
+        assert!(!result.ship_destroyed);
+    }
+
+    #[test]
+    fn test_overkill_through_armor() {
+        let mult = DamageMultipliers::default();
+        let result = apply_damage(DamageType::Thermic, 500.0, 0.0, 100.0, &mult);
+        assert!(result.ship_destroyed);
+        assert_eq!(result.armor_remaining, 0.0);
+        assert_eq!(result.mitigated, 400.0);
     }
 }

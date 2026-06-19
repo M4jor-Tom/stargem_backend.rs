@@ -1,0 +1,14 @@
+id = "550e8400-e29b-41d4-a716-446655440004"
+size = "Fighter"
+role = "Tackler"
+price = 35000
+base_shield = 120.0
+base_armor = 100.0
+base_energy = 180.0
+base_speed = 110.0
+base_agility = 0.7
+shields_count = 1
+armors_count = 1
+capacitors_count = 1
+motors_count = 1
+computers_count = 0

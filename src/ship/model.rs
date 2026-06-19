@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use uuid::Uuid;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum ShipSize {
@@ -74,19 +74,80 @@ pub struct HullStats {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ShipModel {
-    pub id: String,
-    pub name: String,
+    pub id: Uuid,
     pub size: ShipSize,
     pub role: ShipRole,
     pub price: i32,
     pub base_stats: HullStats,
-    pub passive_slots_layout: Vec<String>,
+    pub shields_count: u8,
+    pub armors_count: u8,
+    pub capacitors_count: u8,
+    pub motors_count: u8,
+    pub computers_count: u8,
 }
 
 #[derive(Debug, Clone)]
 pub struct PlayerShip {
-    pub id: String,
-    pub user_id: String,
-    pub ship_model_id: String,
-    pub loadout_id: Option<String>,
+    pub id: Uuid,
+    pub user_id: Uuid,
+    pub ship_model_id: Uuid,
+    pub loadout_id: Option<Uuid>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_ship_size_from_str_valid() {
+        assert_eq!(ShipSize::from_str("frigate"), Some(ShipSize::Frigate));
+        assert_eq!(ShipSize::from_str("Frigate"), Some(ShipSize::Frigate));
+        assert_eq!(ShipSize::from_str("fighter"), Some(ShipSize::Fighter));
+        assert_eq!(ShipSize::from_str("interceptor"), Some(ShipSize::Interceptor));
+    }
+
+    #[test]
+    fn test_ship_size_from_str_invalid() {
+        assert_eq!(ShipSize::from_str("dreadnought"), None);
+        assert_eq!(ShipSize::from_str(""), None);
+    }
+
+    #[test]
+    fn test_ship_role_from_str_all_variants() {
+        assert_eq!(ShipRole::from_str("engineer"), Some(ShipRole::Engineer));
+        assert_eq!(ShipRole::from_str("longrange"), Some(ShipRole::LongRange));
+        assert_eq!(ShipRole::from_str("guard"), Some(ShipRole::Guard));
+        assert_eq!(ShipRole::from_str("tackler"), Some(ShipRole::Tackler));
+        assert_eq!(ShipRole::from_str("gunship"), Some(ShipRole::Gunship));
+        assert_eq!(ShipRole::from_str("command"), Some(ShipRole::Command));
+        assert_eq!(ShipRole::from_str("coverops"), Some(ShipRole::CoverOps));
+        assert_eq!(ShipRole::from_str("recon"), Some(ShipRole::Recon));
+        assert_eq!(ShipRole::from_str("ecm"), Some(ShipRole::Ecm));
+    }
+
+    #[test]
+    fn test_ship_role_from_str_case_insensitive() {
+        assert_eq!(ShipRole::from_str("Engineer"), Some(ShipRole::Engineer));
+        assert_eq!(ShipRole::from_str("LONGRANGE"), Some(ShipRole::LongRange));
+        assert_eq!(ShipRole::from_str("CoverOps"), Some(ShipRole::CoverOps));
+    }
+
+    #[test]
+    fn test_ship_role_from_str_invalid() {
+        assert_eq!(ShipRole::from_str("unknown"), None);
+        assert_eq!(ShipRole::from_str(""), None);
+    }
+
+    #[test]
+    fn test_ship_role_special_module_all_variants() {
+        assert_eq!(ShipRole::Engineer.special_module(), "drones");
+        assert_eq!(ShipRole::LongRange.special_module(), "sniper_weapon");
+        assert_eq!(ShipRole::Guard.special_module(), "phasic_shield");
+        assert_eq!(ShipRole::Tackler.special_module(), "cloak");
+        assert_eq!(ShipRole::Gunship.special_module(), "overclock");
+        assert_eq!(ShipRole::Command.special_module(), "command_shield");
+        assert_eq!(ShipRole::CoverOps.special_module(), "plasma_web");
+        assert_eq!(ShipRole::Recon.special_module(), "hyper_propulsion");
+        assert_eq!(ShipRole::Ecm.special_module(), "electromagnetic_surge");
+    }
 }

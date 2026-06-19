@@ -1,9 +1,8 @@
 use std::collections::HashMap;
-use std::sync::Arc;
 use tokio::sync::mpsc;
 use tokio::time::{self, Duration};
 
-use crate::combat::damage::{apply_damage, load_damage_multipliers, DamageMultipliers, DamageType};
+use crate::combat::damage::{load_damage_multipliers, DamageMultipliers};
 use crate::combat::physics::{PhysicsState, ShipInput};
 use crate::ship::stats::PlayerShipStats;
 
@@ -62,13 +61,16 @@ impl CombatTickLoop {
     }
 
     pub fn add_player(&mut self, id: String, stats: PlayerShipStats) {
+        let shield_hp = stats.current_shield;
+        let armor_hp = stats.current_armor;
+        let energy = stats.current_energy;
         let state = PlayerState {
             id: id.clone(),
             physics: PhysicsState::new(),
             stats,
-            shield_hp: 0.0,
-            armor_hp: 0.0,
-            energy: 0.0,
+            shield_hp,
+            armor_hp,
+            energy,
             heat_level: 0.0,
             input: ShipInput {
                 throttle: 0.0,
@@ -112,5 +114,94 @@ impl CombatTickLoop {
                 tracing::warn!("Snapshot channel full, dropping tick {}", self.tick_number);
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tokio::sync::mpsc;
+
+    #[test]
+    fn test_combat_tick_loop_new_defaults() {
+        let (tx, _) = mpsc::channel(256);
+        let (_, rx) = mpsc::channel(1024);
+        let mut loop_ = CombatTickLoop::new(60, tx, rx);
+        assert_eq!(loop_.tick_rate, 60);
+        assert_eq!(loop_.tick_number, 0);
+        assert!(loop_.players.is_empty());
+    }
+
+    #[test]
+    fn test_combat_tick_loop_loads_default_damage_multipliers() {
+        let (tx, _) = mpsc::channel(256);
+        let (_, rx) = mpsc::channel(1024);
+        let mut loop_ = CombatTickLoop::new(60, tx, rx);
+        // When config file is absent, defaults are used
+        assert_eq!(loop_.damage_multipliers.electromagnetic.shield, 1.5);
+        assert_eq!(loop_.damage_multipliers.electromagnetic.armor, 0.5);
+        assert_eq!(loop_.damage_multipliers.kinetic.shield, 0.5);
+        assert_eq!(loop_.damage_multipliers.kinetic.armor, 1.5);
+        assert_eq!(loop_.damage_multipliers.thermic.shield, 1.0);
+        assert_eq!(loop_.damage_multipliers.thermic.armor, 1.0);
+    }
+
+    #[test]
+    fn test_add_player_initializes_hp_from_stats() {
+        let (snapshot_tx, _) = mpsc::channel(256);
+        let (_, input_rx) = mpsc::channel(1024);
+        let mut loop_ = CombatTickLoop::new(60, snapshot_tx, input_rx);
+
+        let stats = PlayerShipStats {
+            max_shield: 150.0,
+            max_armor: 300.0,
+            max_energy: 75.0,
+            speed: 50.0,
+            agility: 10.0,
+            current_shield: 150.0,
+            current_armor: 300.0,
+            current_energy: 75.0,
+        };
+
+        loop_.add_player("p1".into(), stats.clone());
+
+        let p = &loop_.players["p1"];
+        assert!(
+            (p.shield_hp - stats.current_shield).abs() < f32::EPSILON,
+            "shield_hp should match stats.current_shield, got {} expected {}",
+            p.shield_hp, stats.current_shield
+        );
+        assert!(
+            (p.armor_hp - stats.current_armor).abs() < f32::EPSILON,
+            "armor_hp should match stats.current_armor, got {} expected {}",
+            p.armor_hp, stats.current_armor
+        );
+        assert!(
+            (p.energy - stats.current_energy).abs() < f32::EPSILON,
+            "energy should match stats.current_energy, got {} expected {}",
+            p.energy, stats.current_energy
+        );
+    }
+
+    #[test]
+    fn test_add_player_inserts_player_state() {
+        let (tx, _) = mpsc::channel(256);
+        let (_, rx) = mpsc::channel(1024);
+        let mut loop_ = CombatTickLoop::new(60, tx, rx);
+
+        let stats = PlayerShipStats {
+            max_shield: 100.0, max_armor: 100.0, max_energy: 100.0,
+            speed: 50.0, agility: 10.0,
+            current_shield: 100.0, current_armor: 100.0, current_energy: 100.0,
+        };
+        loop_.add_player("p1".into(), stats);
+        assert_eq!(loop_.players.len(), 1);
+        let p = &loop_.players["p1"];
+        assert_eq!(p.id, "p1");
+        assert_eq!(p.shield_hp, 100.0);
+        assert_eq!(p.armor_hp, 100.0);
+        assert_eq!(p.energy, 100.0);
+        assert_eq!(p.heat_level, 0.0);
+        assert_eq!(p.input.throttle, 0.0);
     }
 }

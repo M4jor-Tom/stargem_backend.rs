@@ -29,7 +29,7 @@ impl PhysicsState {
         let drag = 2.0;
 
         for component in self.velocity.iter_mut() {
-            *component -= *component * drag * dt;
+            *component *= f32::exp(-drag * dt);
         }
 
         let thrust = input.throttle * speed_cap * 3.0;
@@ -92,4 +92,103 @@ fn quaternion_multiply(a: &[f32; 4], b: &[f32; 4]) -> [f32; 4] {
         a[3] * b[2] + a[0] * b[1] - a[1] * b[0] + a[2] * b[3],
         a[3] * b[3] - a[0] * b[0] - a[1] * b[1] - a[2] * b[2],
     ]
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::ship::stats::PlayerShipStats;
+
+    fn dummy_stats() -> PlayerShipStats {
+        PlayerShipStats {
+            max_shield: 100.0, max_armor: 100.0, max_energy: 100.0,
+            speed: 50.0, agility: 10.0,
+            current_shield: 100.0, current_armor: 100.0, current_energy: 100.0,
+        }
+    }
+
+    #[test]
+    fn test_physics_new_initial_state() {
+        let s = PhysicsState::new();
+        assert_eq!(s.position, [0.0; 3]);
+        assert_eq!(s.velocity, [0.0; 3]);
+        assert_eq!(s.rotation, [0.0, 0.0, 0.0, 1.0]);
+    }
+
+    #[test]
+    fn test_forward_vector_identity() {
+        let s = PhysicsState::new();
+        let fwd = s.forward_vector();
+        assert!((fwd[0]).abs() < 1e-6);
+        assert!((fwd[1]).abs() < 1e-6);
+        assert!((fwd[2] - 1.0).abs() < 1e-6, "expected +Z, got {:?}", fwd);
+    }
+
+    #[test]
+    fn test_quaternion_from_zero_angle() {
+        let q = quaternion_from_axis_angle([1.0, 0.0, 0.0], 0.0);
+        assert!((q[3] - 1.0).abs() < 1e-6);
+        assert_eq!(q[0], 0.0);
+    }
+
+    #[test]
+    fn test_quaternion_multiply_by_identity() {
+        let id = [0.0, 0.0, 0.0, 1.0];
+        let b = [0.1, 0.2, 0.3, 0.8];
+        let r = quaternion_multiply(&id, &b);
+        for i in 0..4 {
+            assert!((r[i] - b[i]).abs() < 1e-6);
+        }
+    }
+
+    #[test]
+    fn test_quaternion_multiply_commutes_same_axis() {
+        let q = quaternion_from_axis_angle([0.0, 1.0, 0.0], 0.5);
+        let r = quaternion_multiply(&q, &q);
+        let expected = quaternion_from_axis_angle([0.0, 1.0, 0.0], 1.0);
+        for i in 0..4 {
+            assert!((r[i] - expected[i]).abs() < 1e-5);
+        }
+    }
+
+    #[test]
+    fn test_update_zero_throttle_no_movement() {
+        let mut s = PhysicsState::new();
+        let input = ShipInput { throttle: 0.0, yaw: 0.0, pitch: 0.0, roll: 0.0 };
+        let stats = dummy_stats();
+        s.update(&input, &stats, 1.0);
+        assert_eq!(s.position, [0.0; 3]);
+    }
+
+    #[test]
+    fn test_update_throttle_moves_forward() {
+        let mut s = PhysicsState::new();
+        let input = ShipInput { throttle: 1.0, yaw: 0.0, pitch: 0.0, roll: 0.0 };
+        let stats = dummy_stats();
+        s.update(&input, &stats, 1.0);
+        assert!(s.velocity[2] > 0.0, "should have forward velocity");
+        assert!(s.position[2] > 0.0, "should have forward position");
+    }
+
+    #[test]
+    fn test_update_clamps_velocity_to_speed_cap() {
+        let mut s = PhysicsState::new();
+        s.velocity = [0.0, 0.0, 1000.0];
+        let input = ShipInput { throttle: 0.0, yaw: 0.0, pitch: 0.0, roll: 0.0 };
+        let stats = dummy_stats();
+        s.update(&input, &stats, 1.0);
+        let speed = s.velocity.iter().map(|v| v.powi(2)).sum::<f32>().sqrt();
+        assert!(speed <= 50.0 + 1e-6, "speed {} > 50", speed);
+    }
+
+    #[test]
+    fn test_update_applies_drag() {
+        let mut s = PhysicsState::new();
+        s.velocity = [10.0, 0.0, 0.0];
+        let input = ShipInput { throttle: 0.0, yaw: 0.0, pitch: 0.0, roll: 0.0 };
+        let stats = dummy_stats();
+        s.update(&input, &stats, 1.0);
+        assert!(s.velocity[0].abs() < 10.0, "drag should reduce velocity");
+        assert!(s.velocity[0] > 0.0, "drag should not reverse velocity");
+    }
 }

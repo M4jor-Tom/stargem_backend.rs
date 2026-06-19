@@ -1,0 +1,14 @@
+id = "550e8400-e29b-41d4-a716-446655440007"
+size = "Interceptor"
+role = "CoverOps"
+price = 32000
+base_shield = 80.0
+base_armor = 60.0
+base_energy = 200.0
+base_speed = 130.0
+base_agility = 0.9
+shields_count = 1
+armors_count = 1
+capacitors_count = 1
+motors_count = 1
+computers_count = 0

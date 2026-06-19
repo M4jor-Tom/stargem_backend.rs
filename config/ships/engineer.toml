@@ -1,0 +1,14 @@
+id = "550e8400-e29b-41d4-a716-446655440001"
+size = "Frigate"
+role = "Engineer"
+price = 40000
+base_shield = 250.0
+base_armor = 150.0
+base_energy = 200.0
+base_speed = 70.0
+base_agility = 0.3
+shields_count = 2
+armors_count = 1
+capacitors_count = 1
+motors_count = 0
+computers_count = 1

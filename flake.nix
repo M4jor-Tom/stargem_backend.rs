@@ -52,5 +52,23 @@
         packages.dockerImage = pkgs.callPackage ./image.nix {
           inherit craneLib;
         };
+        packages.test = craneLib.cargoTest (commonArgs // {
+          inherit cargoArtifacts;
+          src = craneLib.cleanCargoSource ./.;
+        });
+
+        apps.test = flake-utils.lib.mkApp {
+          drv = pkgs.writeShellApplication {
+            name = "test";
+            runtimeInputs = with pkgs; [
+              rustToolchain protobuf pkg-config openssl clang
+            ];
+            text = ''
+              export PROTOC="${pkgs.protobuf}/bin/protoc"
+              export PROTOC_INCLUDE="${pkgs.protobuf}/include"
+              exec cargo test "$@"
+            '';
+          };
+        };
       });
 }

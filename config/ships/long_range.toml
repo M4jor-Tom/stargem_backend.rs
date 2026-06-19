@@ -1,0 +1,14 @@
+id = "550e8400-e29b-41d4-a716-446655440002"
+size = "Frigate"
+role = "LongRange"
+price = 45000
+base_shield = 150.0
+base_armor = 100.0
+base_energy = 250.0
+base_speed = 85.0
+base_agility = 0.4
+shields_count = 1
+armors_count = 1
+capacitors_count = 2
+motors_count = 0
+computers_count = 1

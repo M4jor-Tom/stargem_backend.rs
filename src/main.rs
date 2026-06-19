@@ -1,7 +1,8 @@
-mod combat;
-mod proto_gen;
-mod ship;
-mod transport;
+use std::sync::Arc;
+
+use stargem_backend::database;
+use stargem_backend::grpc;
+use stargem_backend::transport;
 
 use clap::Parser;
 use tracing_subscriber::EnvFilter;
@@ -33,11 +34,34 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .init();
 
     let args = Args::parse();
-    tracing::info!("Starting Stargem backend (tick_rate={} Hz)", args.tick_rate);
-
-    let quic_addr = args.quic_addr.clone();
     let grpc_addr = args.grpc_addr.clone();
+    let quic_addr = args.quic_addr.clone();
     let tick_rate = args.tick_rate;
+
+    tracing::info!("Starting Stargem backend (tick_rate={} Hz)", tick_rate);
+
+    let pool = if let Some(ref url) = args.database_url {
+        let p = database::init_pool(url).await?;
+        database::run_schema(&p).await?;
+        database::run_seed(&p).await?;
+        tracing::info!("Database initialized");
+        Some(p)
+    } else {
+        tracing::warn!("No --database-url provided; running without database");
+        None
+    };
+
+    let grpc_state = Arc::new(grpc::AppState::new(pool));
+
+    let grpc_handle = {
+        let state = grpc_state.clone();
+        let addr = grpc_addr.clone();
+        tokio::spawn(async move {
+            grpc::serve(&addr, state)
+                .await
+                .expect("gRPC server failed");
+        })
+    };
 
     let quic_addr2 = quic_addr.clone();
     let quic_handle = tokio::spawn(async move {
@@ -49,6 +73,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     tracing::info!("gRPC server listening on {}", grpc_addr);
     tracing::info!("QUIC server listening on {}", quic_addr);
 
-    quic_handle.await?;
+    tokio::try_join!(grpc_handle, quic_handle)?;
     Ok(())
 }

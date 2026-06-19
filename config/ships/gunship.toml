@@ -1,0 +1,14 @@
+id = "550e8400-e29b-41d4-a716-446655440005"
+size = "Fighter"
+role = "Gunship"
+price = 38000
+base_shield = 160.0
+base_armor = 140.0
+base_energy = 160.0
+base_speed = 95.0
+base_agility = 0.5
+shields_count = 1
+armors_count = 1
+capacitors_count = 1
+motors_count = 0
+computers_count = 1
