@@ -94,10 +94,12 @@ impl GameMode for TeamDeathmatch {
     fn on_player_death(&mut self, player_id: Uuid, killer_id: Option<Uuid>) {
         if let Some(player) = self.players.get_mut(&player_id) {
             player.deaths += 1;
+            player.damage_taken += 100.0; // TODO: replace with actual damage from combat system
         }
         if let Some(killer) = killer_id {
             if let Some(killer_player) = self.players.get_mut(&killer) {
                 killer_player.kills += 1;
+                killer_player.damage_dealt += 100.0; // TODO: replace with actual damage from combat system
                 let team_id = killer_player.team_id;
                 if let Some(score) = self.team_scores.get_mut(&team_id) {
                     *score += 1;
@@ -321,5 +323,27 @@ mod tests {
         assert!(mgr.try_start_match().is_some());
         assert_eq!(mgr.queue_size(), 0);
         assert!(mgr.try_start_match().is_none());
+    }
+
+    #[test]
+    fn test_damage_stats_accumulate_on_death() {
+        let players = vec![Uuid::from_u128(1), Uuid::from_u128(2)];
+        let mut match_ = TeamDeathmatch::new(players.clone(), 50, 600.0);
+
+        match_.on_player_death(players[1], Some(players[0]));
+
+        let killer = match_.players.get(&players[0]).unwrap();
+        let victim = match_.players.get(&players[1]).unwrap();
+
+        assert!(
+            killer.damage_dealt > 0.0,
+            "killer should have damage_dealt > 0, got {}",
+            killer.damage_dealt
+        );
+        assert!(
+            victim.damage_taken > 0.0,
+            "victim should have damage_taken > 0, got {}",
+            victim.damage_taken
+        );
     }
 }
