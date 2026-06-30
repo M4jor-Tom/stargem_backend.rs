@@ -1,5 +1,7 @@
 #[path = "stargem.auth.rs"]
 pub mod auth;
+#[path = "stargem.grpc.spectator.rs"]
+pub mod spectator;
 #[path = "stargem.hangar.rs"]
 pub mod hangar;
 #[path = "stargem.loadout.rs"]

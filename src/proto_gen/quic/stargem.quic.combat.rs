@@ -38,6 +38,8 @@ pub struct ShipState {
     pub energy: f32,
     #[prost(float, tag = "8")]
     pub heat_level: f32,
+    #[prost(string, tag = "9")]
+    pub player_id: ::prost::alloc::string::String,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
