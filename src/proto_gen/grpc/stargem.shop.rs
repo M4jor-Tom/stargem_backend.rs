@@ -48,7 +48,10 @@ pub mod shop_service_server {
         async fn list_ships(
             &self,
             request: tonic::Request<super::ListShipsRequest>,
-        ) -> std::result::Result<tonic::Response<super::ListShipsResponse>, tonic::Status>;
+        ) -> std::result::Result<
+            tonic::Response<super::ListShipsResponse>,
+            tonic::Status,
+        >;
         async fn buy_ship(
             &self,
             request: tonic::Request<super::BuyShipRequest>,
@@ -77,7 +80,10 @@ pub mod shop_service_server {
                 max_encoding_message_size: None,
             }
         }
-        pub fn with_interceptor<F>(inner: T, interceptor: F) -> InterceptedService<Self, F>
+        pub fn with_interceptor<F>(
+            inner: T,
+            interceptor: F,
+        ) -> InterceptedService<Self, F>
         where
             F: tonic::service::Interceptor,
         {
@@ -133,9 +139,15 @@ pub mod shop_service_server {
                 "/stargem.shop.ShopService/ListShips" => {
                     #[allow(non_camel_case_types)]
                     struct ListShipsSvc<T: ShopService>(pub Arc<T>);
-                    impl<T: ShopService> tonic::server::UnaryService<super::ListShipsRequest> for ListShipsSvc<T> {
+                    impl<
+                        T: ShopService,
+                    > tonic::server::UnaryService<super::ListShipsRequest>
+                    for ListShipsSvc<T> {
                         type Response = super::ListShipsResponse;
-                        type Future = BoxFuture<tonic::Response<Self::Response>, tonic::Status>;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
                         fn call(
                             &mut self,
                             request: tonic::Request<super::ListShipsRequest>,
@@ -173,16 +185,23 @@ pub mod shop_service_server {
                 "/stargem.shop.ShopService/BuyShip" => {
                     #[allow(non_camel_case_types)]
                     struct BuyShipSvc<T: ShopService>(pub Arc<T>);
-                    impl<T: ShopService> tonic::server::UnaryService<super::BuyShipRequest> for BuyShipSvc<T> {
+                    impl<
+                        T: ShopService,
+                    > tonic::server::UnaryService<super::BuyShipRequest>
+                    for BuyShipSvc<T> {
                         type Response = super::BuyShipResponse;
-                        type Future = BoxFuture<tonic::Response<Self::Response>, tonic::Status>;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
                         fn call(
                             &mut self,
                             request: tonic::Request<super::BuyShipRequest>,
                         ) -> Self::Future {
                             let inner = Arc::clone(&self.0);
-                            let fut =
-                                async move { <T as ShopService>::buy_ship(&inner, request).await };
+                            let fut = async move {
+                                <T as ShopService>::buy_ship(&inner, request).await
+                            };
                             Box::pin(fut)
                         }
                     }
@@ -209,14 +228,18 @@ pub mod shop_service_server {
                     };
                     Box::pin(fut)
                 }
-                _ => Box::pin(async move {
-                    Ok(http::Response::builder()
-                        .status(200)
-                        .header("grpc-status", "12")
-                        .header("content-type", "application/grpc")
-                        .body(empty_body())
-                        .unwrap())
-                }),
+                _ => {
+                    Box::pin(async move {
+                        Ok(
+                            http::Response::builder()
+                                .status(200)
+                                .header("grpc-status", "12")
+                                .header("content-type", "application/grpc")
+                                .body(empty_body())
+                                .unwrap(),
+                        )
+                    })
+                }
             }
         }
     }

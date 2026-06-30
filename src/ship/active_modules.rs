@@ -25,7 +25,7 @@ mod tests {
     use uuid::Uuid;
 
     use crate::ship::active_module_state::{
-        ActiveModuleState, ActivationFlow as StateActivationFlow, ActivationStatus,
+        ActivationFlow as StateActivationFlow, ActivationStatus, ActiveModuleState,
     };
 
     #[test]
@@ -72,7 +72,10 @@ mod tests {
         );
         assert_eq!(module.activate(100.0), Ok(20.0));
         assert!(module.is_active());
-        if let ActivationStatus::Active { ongoing_drain_per_sec } = &module.status {
+        if let ActivationStatus::Active {
+            ongoing_drain_per_sec,
+        } = &module.status
+        {
             assert!(
                 (*ongoing_drain_per_sec - 10.0).abs() < f32::EPSILON,
                 "ongoing drain should use drain_per_second (10.0), got {}",

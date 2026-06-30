@@ -31,8 +31,10 @@ mod tests {
     #[test]
     fn test_passive_module_type_serde_roundtrip() {
         let variants = vec![
-            PassiveModuleType::Shield, PassiveModuleType::Armor,
-            PassiveModuleType::Capacitor, PassiveModuleType::Motor,
+            PassiveModuleType::Shield,
+            PassiveModuleType::Armor,
+            PassiveModuleType::Capacitor,
+            PassiveModuleType::Motor,
             PassiveModuleType::Computer,
         ];
         for v in &variants {

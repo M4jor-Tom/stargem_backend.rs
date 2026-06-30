@@ -77,7 +77,10 @@ mod tests {
 
     #[test]
     fn test_auth_error_display() {
-        assert_eq!(AuthError::InvalidToken.to_string(), "Invalid authentication token");
+        assert_eq!(
+            AuthError::InvalidToken.to_string(),
+            "Invalid authentication token"
+        );
         assert_eq!(AuthError::SessionExpired.to_string(), "Session expired");
         assert_eq!(
             AuthError::SteamApiError("boom".into()).to_string(),
@@ -104,9 +107,13 @@ mod tests {
     async fn test_validate_session_valid_token() {
         let provider = MockAuthProvider::new();
         let user_id = provider.authenticate("token").await.unwrap();
-        let session = provider.sessions.lock().unwrap().iter().find_map(|(k, &v)| {
-            if v == user_id { Some(k.clone()) } else { None }
-        }).unwrap();
+        let session = provider
+            .sessions
+            .lock()
+            .unwrap()
+            .iter()
+            .find_map(|(k, &v)| if v == user_id { Some(k.clone()) } else { None })
+            .unwrap();
         let validated = provider.validate_session(&session).await.unwrap();
         assert_eq!(validated, user_id);
     }
@@ -134,7 +141,11 @@ mod tests {
         }
         ids.sort();
         ids.dedup();
-        assert_eq!(ids.len(), 10, "all 10 authentications should produce distinct user IDs");
+        assert_eq!(
+            ids.len(),
+            10,
+            "all 10 authentications should produce distinct user IDs"
+        );
     }
 
     #[tokio::test]
@@ -148,7 +159,10 @@ mod tests {
     async fn test_empty_token_still_succeeds_with_mock() {
         let provider = MockAuthProvider::new();
         let result = provider.authenticate("").await;
-        assert!(result.is_ok(), "MockAuthProvider should accept empty tokens");
+        assert!(
+            result.is_ok(),
+            "MockAuthProvider should accept empty tokens"
+        );
     }
 
     #[tokio::test]

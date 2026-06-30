@@ -41,7 +41,10 @@ pub mod auth_service_server {
         async fn validate_session(
             &self,
             request: tonic::Request<super::ValidateSessionRequest>,
-        ) -> std::result::Result<tonic::Response<super::ValidateSessionResponse>, tonic::Status>;
+        ) -> std::result::Result<
+            tonic::Response<super::ValidateSessionResponse>,
+            tonic::Status,
+        >;
     }
     #[derive(Debug)]
     pub struct AuthServiceServer<T: AuthService> {
@@ -66,7 +69,10 @@ pub mod auth_service_server {
                 max_encoding_message_size: None,
             }
         }
-        pub fn with_interceptor<F>(inner: T, interceptor: F) -> InterceptedService<Self, F>
+        pub fn with_interceptor<F>(
+            inner: T,
+            interceptor: F,
+        ) -> InterceptedService<Self, F>
         where
             F: tonic::service::Interceptor,
         {
@@ -122,16 +128,21 @@ pub mod auth_service_server {
                 "/stargem.auth.AuthService/Login" => {
                     #[allow(non_camel_case_types)]
                     struct LoginSvc<T: AuthService>(pub Arc<T>);
-                    impl<T: AuthService> tonic::server::UnaryService<super::LoginRequest> for LoginSvc<T> {
+                    impl<T: AuthService> tonic::server::UnaryService<super::LoginRequest>
+                    for LoginSvc<T> {
                         type Response = super::LoginResponse;
-                        type Future = BoxFuture<tonic::Response<Self::Response>, tonic::Status>;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
                         fn call(
                             &mut self,
                             request: tonic::Request<super::LoginRequest>,
                         ) -> Self::Future {
                             let inner = Arc::clone(&self.0);
-                            let fut =
-                                async move { <T as AuthService>::login(&inner, request).await };
+                            let fut = async move {
+                                <T as AuthService>::login(&inner, request).await
+                            };
                             Box::pin(fut)
                         }
                     }
@@ -161,11 +172,15 @@ pub mod auth_service_server {
                 "/stargem.auth.AuthService/ValidateSession" => {
                     #[allow(non_camel_case_types)]
                     struct ValidateSessionSvc<T: AuthService>(pub Arc<T>);
-                    impl<T: AuthService> tonic::server::UnaryService<super::ValidateSessionRequest>
-                        for ValidateSessionSvc<T>
-                    {
+                    impl<
+                        T: AuthService,
+                    > tonic::server::UnaryService<super::ValidateSessionRequest>
+                    for ValidateSessionSvc<T> {
                         type Response = super::ValidateSessionResponse;
-                        type Future = BoxFuture<tonic::Response<Self::Response>, tonic::Status>;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
                         fn call(
                             &mut self,
                             request: tonic::Request<super::ValidateSessionRequest>,
@@ -200,14 +215,18 @@ pub mod auth_service_server {
                     };
                     Box::pin(fut)
                 }
-                _ => Box::pin(async move {
-                    Ok(http::Response::builder()
-                        .status(200)
-                        .header("grpc-status", "12")
-                        .header("content-type", "application/grpc")
-                        .body(empty_body())
-                        .unwrap())
-                }),
+                _ => {
+                    Box::pin(async move {
+                        Ok(
+                            http::Response::builder()
+                                .status(200)
+                                .header("grpc-status", "12")
+                                .header("content-type", "application/grpc")
+                                .body(empty_body())
+                                .unwrap(),
+                        )
+                    })
+                }
             }
         }
     }

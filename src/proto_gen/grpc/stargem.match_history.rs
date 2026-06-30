@@ -41,7 +41,10 @@ pub mod match_history_service_server {
         async fn get_history(
             &self,
             request: tonic::Request<super::GetHistoryRequest>,
-        ) -> std::result::Result<tonic::Response<super::GetHistoryResponse>, tonic::Status>;
+        ) -> std::result::Result<
+            tonic::Response<super::GetHistoryResponse>,
+            tonic::Status,
+        >;
     }
     #[derive(Debug)]
     pub struct MatchHistoryServiceServer<T: MatchHistoryService> {
@@ -66,7 +69,10 @@ pub mod match_history_service_server {
                 max_encoding_message_size: None,
             }
         }
-        pub fn with_interceptor<F>(inner: T, interceptor: F) -> InterceptedService<Self, F>
+        pub fn with_interceptor<F>(
+            inner: T,
+            interceptor: F,
+        ) -> InterceptedService<Self, F>
         where
             F: tonic::service::Interceptor,
         {
@@ -122,18 +128,23 @@ pub mod match_history_service_server {
                 "/stargem.match_history.MatchHistoryService/GetHistory" => {
                     #[allow(non_camel_case_types)]
                     struct GetHistorySvc<T: MatchHistoryService>(pub Arc<T>);
-                    impl<T: MatchHistoryService>
-                        tonic::server::UnaryService<super::GetHistoryRequest> for GetHistorySvc<T>
-                    {
+                    impl<
+                        T: MatchHistoryService,
+                    > tonic::server::UnaryService<super::GetHistoryRequest>
+                    for GetHistorySvc<T> {
                         type Response = super::GetHistoryResponse;
-                        type Future = BoxFuture<tonic::Response<Self::Response>, tonic::Status>;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
                         fn call(
                             &mut self,
                             request: tonic::Request<super::GetHistoryRequest>,
                         ) -> Self::Future {
                             let inner = Arc::clone(&self.0);
                             let fut = async move {
-                                <T as MatchHistoryService>::get_history(&inner, request).await
+                                <T as MatchHistoryService>::get_history(&inner, request)
+                                    .await
                             };
                             Box::pin(fut)
                         }
@@ -161,14 +172,18 @@ pub mod match_history_service_server {
                     };
                     Box::pin(fut)
                 }
-                _ => Box::pin(async move {
-                    Ok(http::Response::builder()
-                        .status(200)
-                        .header("grpc-status", "12")
-                        .header("content-type", "application/grpc")
-                        .body(empty_body())
-                        .unwrap())
-                }),
+                _ => {
+                    Box::pin(async move {
+                        Ok(
+                            http::Response::builder()
+                                .status(200)
+                                .header("grpc-status", "12")
+                                .header("content-type", "application/grpc")
+                                .body(empty_body())
+                                .unwrap(),
+                        )
+                    })
+                }
             }
         }
     }
@@ -194,7 +209,8 @@ pub mod match_history_service_server {
             write!(f, "{:?}", self.0)
         }
     }
-    impl<T: MatchHistoryService> tonic::server::NamedService for MatchHistoryServiceServer<T> {
+    impl<T: MatchHistoryService> tonic::server::NamedService
+    for MatchHistoryServiceServer<T> {
         const NAME: &'static str = "stargem.match_history.MatchHistoryService";
     }
 }

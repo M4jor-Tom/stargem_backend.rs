@@ -1,4 +1,3 @@
-use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -9,7 +8,7 @@ use uuid::Uuid;
 
 use stargem_backend::combat::damage::{apply_damage, DamageMultipliers};
 use stargem_backend::combat::physics::PhysicsState;
-use stargem_backend::combat::tick::{snapshot_to_proto, PlayerState, TickSnapshot};
+use stargem_backend::combat::tick::{snapshot_to_proto, DamageEventRecord, PlayerState, TickSnapshot};
 use stargem_backend::proto_gen::grpc::spectator::spectator_service_server::SpectatorServiceServer;
 use stargem_backend::scenarios::{
     damage_type_str, ship_destruction_electromag, ship_destruction_kinetic,
@@ -17,40 +16,44 @@ use stargem_backend::scenarios::{
 };
 use stargem_backend::spectator::{MatchRegistry, SpectatorHandler};
 
-fn init_scenarios() -> HashMap<&'static str, Scenario> {
-    let mut m = HashMap::new();
-    m.insert("kinetic", ship_destruction_kinetic());
-    m.insert("electromag", ship_destruction_electromag());
-    m.insert("overkill", ship_destruction_overkill());
-    m
+fn lookup(name: &str) -> Option<Scenario> {
+    match name {
+        "ship_destruction_kinetic" => Some(ship_destruction_kinetic()),
+        "ship_destruction_electromag" => Some(ship_destruction_electromag()),
+        "ship_destruction_overkill" => Some(ship_destruction_overkill()),
+        _ => None,
+    }
 }
 
-#[derive(Parser)]
-#[command(name = "scenario-runner")]
+#[derive(Parser, Debug)]
 struct Args {
-    #[arg(long, default_value = "kinetic")]
+    /// Which scenario to run.
+    #[arg(long)]
     scenario: String,
+
+    /// gRPC listen address (spectator subscribers connect here).
     #[arg(long, default_value = "0.0.0.0:50051")]
     grpc_addr: String,
-    #[arg(long, default_value_t = 60)]
+
+    /// Tick rate (Hz). Lower = slower playback; useful for watching by hand.
+    #[arg(long, default_value_t = 2)]
     tick_rate: u64,
+
+    /// Loop the scenario forever so a spectator can join at any time.
     #[arg(long)]
     loop_: bool,
 }
 
-#[tokio::main]
-async fn main() {
+#[tokio::main(flavor = "multi_thread", worker_threads = 2)]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
     tracing_subscriber::fmt::init();
-
     let args = Args::parse();
-    let scenarios = init_scenarios();
-    let scn = scenarios.get(args.scenario.as_str())
-        .expect("unknown scenario (kinetic|electromag|overkill)");
-
-    let match_id = Uuid::from_u128(0xCAFE);
-    let (tx, _) = broadcast::channel(64);
+    let scn = lookup(&args.scenario)
+        .ok_or_else(|| format!("unknown scenario: {}", args.scenario))?;
 
     let registry = Arc::new(Mutex::new(MatchRegistry::new()));
+    let (tx, _) = broadcast::channel(256);
+    let match_id = Uuid::new_v4();
     registry.lock().await.register(
         match_id,
         scn.spawns.iter().map(|s| s.player_id.to_string()).collect(),
@@ -58,106 +61,92 @@ async fn main() {
         tx.clone(),
     );
 
-    let handler = SpectatorHandler { registry: registry.clone() };
-    let svc = SpectatorServiceServer::new(handler);
-    let grpc_addr = args.grpc_addr.clone();
-
+    let addr: std::net::SocketAddr = args.grpc_addr.parse()?;
+    let svc = SpectatorServiceServer::new(SpectatorHandler { registry: registry.clone() });
     tokio::spawn(async move {
         tonic::transport::Server::builder()
             .add_service(svc)
-            .serve(grpc_addr.parse().unwrap())
-            .await
-            .unwrap();
+            .serve(addr).await.unwrap();
     });
+    tracing::info!("scenario-runner listening on {}, match_id={}", addr, match_id);
 
-    tokio::time::sleep(Duration::from_millis(100)).await;
-    tracing::info!("Scenario '{}' ready on {}", scn.name, args.grpc_addr);
+    run_loop(scn, tx, args.tick_rate, args.loop_).await;
+    Ok(())
+}
 
-    let tick_dt = Duration::from_secs_f64(1.0 / args.tick_rate as f64);
-    let mut current_tick: u64 = 0;
-    let mut script_idx: usize = 0;
-    let mut shield_hp: HashMap<Uuid, f32> = HashMap::new();
-    let mut armor_hp: HashMap<Uuid, f32> = HashMap::new();
-    let mut player_states: HashMap<Uuid, PlayerState> = HashMap::new();
-
-    for spawn in &scn.spawns {
-        shield_hp.insert(spawn.player_id, spawn.stats.current_shield);
-        armor_hp.insert(spawn.player_id, spawn.stats.current_armor);
-        let mut p = PhysicsState::new();
-        p.position = spawn.position;
-        player_states.insert(spawn.player_id, PlayerState {
-            id: spawn.player_id.to_string(),
-            physics: p,
-            stats: spawn.stats.clone(),
-            shield_hp: spawn.stats.current_shield,
-            armor_hp: spawn.stats.current_armor,
-            energy: spawn.stats.current_energy,
-            heat_level: 0.0,
-            input: Default::default(),
-        });
-    }
+async fn run_loop(
+    scn: Scenario,
+    tx: broadcast::Sender<stargem_backend::proto_gen::quic::combat::GameStateSnapshot>,
+    tick_rate: u64,
+    do_loop: bool,
+) {
+    let mult = DamageMultipliers::default();
+    let mut interval = interval(Duration::from_secs_f64(1.0 / tick_rate as f64));
 
     loop {
-        interval(tick_dt).tick().await;
-        current_tick += 1;
+        let mut ships: std::collections::HashMap<Uuid, PlayerState> = scn.spawns.iter().map(|s| {
+            let mut phys = PhysicsState::new();
+            phys.position = s.position;
+            (s.player_id, PlayerState {
+                id: s.player_id.to_string(),
+                physics: phys,
+                stats: s.stats.clone(),
+                shield_hp: s.stats.current_shield,
+                armor_hp: s.stats.current_armor,
+                energy: s.stats.current_energy,
+                heat_level: 0.0,
+                input: Default::default(),
+            })
+        }).collect();
 
-        while script_idx < scn.script.len() && scn.script[script_idx].at_tick <= current_tick {
-            let step = &scn.script[script_idx];
-            match &step.action {
-                ScenarioAction::Damage { src, tgt, dtype, raw } => {
-                    let cur_shield = *shield_hp.get(tgt).unwrap_or(&0.0);
-                    let cur_armor = *armor_hp.get(tgt).unwrap_or(&0.0);
-                    let mult = DamageMultipliers::default();
-                    let result = apply_damage(*dtype, *raw, cur_shield, cur_armor, &mult);
-                    shield_hp.insert(*tgt, result.shield_remaining);
-                    armor_hp.insert(*tgt, result.armor_remaining);
-                    if let Some(ps) = player_states.get_mut(tgt) {
-                        ps.shield_hp = result.shield_remaining;
-                        ps.armor_hp = result.armor_remaining;
-                    }
-                    tracing::info!(
-                        "tick={} damage src={} tgt={} type={} shield={:.1}->{:.1} armor={:.1}->{:.1}",
-                        current_tick, src, tgt, damage_type_str(*dtype),
-                        cur_shield, result.shield_remaining, cur_armor, result.armor_remaining,
-                    );
-                }
-                ScenarioAction::Input { .. } => {}
-                ScenarioAction::EndMatch => {
-                    tracing::info!("Scenario complete at tick {}", current_tick);
-                    if args.loop_ {
-                        tracing::info!("Restarting scenario...");
-                        current_tick = 0;
-                        script_idx = 0;
-                        shield_hp.clear();
-                        armor_hp.clear();
-                        player_states.clear();
-                        for spawn in &scn.spawns {
-                            shield_hp.insert(spawn.player_id, spawn.stats.current_shield);
-                            armor_hp.insert(spawn.player_id, spawn.stats.current_armor);
-                            let mut p = PhysicsState::new();
-                            p.position = spawn.position;
-                            player_states.insert(spawn.player_id, PlayerState {
-                                id: spawn.player_id.to_string(),
-                                physics: p,
-                                stats: spawn.stats.clone(),
-                                shield_hp: spawn.stats.current_shield,
-                                armor_hp: spawn.stats.current_armor,
-                                energy: spawn.stats.current_energy,
-                                heat_level: 0.0,
-                                input: Default::default(),
+        let mut tick: u64 = 0;
+        let mut script_idx = 0;
+        let mut sorted: Vec<&_> = scn.script.iter().collect();
+        sorted.sort_by_key(|s| s.at_tick);
+
+        let mut ended = false;
+        while !ended {
+            interval.tick().await;
+            tick += 1;
+
+            let mut pending: Vec<DamageEventRecord> = Vec::new();
+
+            while script_idx < sorted.len() && sorted[script_idx].at_tick <= tick {
+                let step = sorted[script_idx];
+                script_idx += 1;
+                match &step.action {
+                    ScenarioAction::Damage { src, tgt, dtype, raw } => {
+                        if let Some(target) = ships.get_mut(tgt) {
+                            let r = apply_damage(*dtype, *raw, target.shield_hp, target.armor_hp, &mult);
+                            target.shield_hp = r.shield_remaining;
+                            target.armor_hp = r.armor_remaining;
+                            pending.push(DamageEventRecord {
+                                source: src.to_string(),
+                                target: tgt.to_string(),
+                                damage_type: damage_type_str(*dtype).to_string(),
+                                raw_amount: *raw,
+                                mitigated_amount: r.mitigated,
                             });
                         }
                     }
+                    ScenarioAction::Input { player, input } => {
+                        if let Some(ship) = ships.get_mut(player) {
+                            ship.input = input.clone();
+                        }
+                    }
+                    ScenarioAction::EndMatch => { ended = true; }
                 }
             }
-            script_idx += 1;
+
+            let snapshot = TickSnapshot {
+                tick_number: tick,
+                players: ships.values().cloned().collect(),
+                damage_events: pending,
+            };
+            let _ = tx.send(snapshot_to_proto(&snapshot));
         }
 
-        let snapshot = TickSnapshot {
-            tick_number: current_tick,
-            players: player_states.values().cloned().collect(),
-            damage_events: vec![],
-        };
-        let _ = tx.send(snapshot_to_proto(&snapshot));
+        if !do_loop { break; }
+        tokio::time::sleep(Duration::from_secs(2)).await;
     }
 }

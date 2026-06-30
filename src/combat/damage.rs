@@ -181,8 +181,14 @@ mod tests {
     fn test_negative_damage_clamped_to_zero() {
         let mult = DamageMultipliers::default();
         let result = apply_damage(DamageType::Thermic, -50.0, 100.0, 100.0, &mult);
-        assert!((result.shield_remaining - 100.0).abs() < 1e-4, "negative damage should not heal shield");
-        assert!((result.armor_remaining - 100.0).abs() < 1e-4, "negative damage should not heal armor");
+        assert!(
+            (result.shield_remaining - 100.0).abs() < 1e-4,
+            "negative damage should not heal shield"
+        );
+        assert!(
+            (result.armor_remaining - 100.0).abs() < 1e-4,
+            "negative damage should not heal armor"
+        );
     }
 
     #[test]
@@ -190,13 +196,22 @@ mod tests {
         let mult = DamageMultipliers::default();
 
         let em = apply_damage(DamageType::Electromagnetic, 100.0, 0.0, 100.0, &mult);
-        assert!((em.armor_remaining - 25.0).abs() < 1e-4, "EM: 100*1.5 shield → 150*0.5 armor = 75 damage, 25 remaining");
+        assert!(
+            (em.armor_remaining - 25.0).abs() < 1e-4,
+            "EM: 100*1.5 shield → 150*0.5 armor = 75 damage, 25 remaining"
+        );
 
         let kin = apply_damage(DamageType::Kinetic, 100.0, 0.0, 100.0, &mult);
-        assert!((kin.armor_remaining - 25.0).abs() < 1e-4, "Kinetic: 100*0.5 shield → 50*1.5 armor = 75 damage, 25 remaining");
+        assert!(
+            (kin.armor_remaining - 25.0).abs() < 1e-4,
+            "Kinetic: 100*0.5 shield → 50*1.5 armor = 75 damage, 25 remaining"
+        );
 
         let therm = apply_damage(DamageType::Thermic, 50.0, 0.0, 100.0, &mult);
-        assert!((therm.armor_remaining - 50.0).abs() < 1e-4, "Thermic: 50*1.0 shield → 50*1.0 armor = 50 damage, 50 remaining");
+        assert!(
+            (therm.armor_remaining - 50.0).abs() < 1e-4,
+            "Thermic: 50*1.0 shield → 50*1.0 armor = 50 damage, 50 remaining"
+        );
     }
 
     #[test]

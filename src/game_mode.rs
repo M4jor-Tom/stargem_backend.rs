@@ -196,7 +196,10 @@ impl MatchManager {
 
     pub fn try_start_match(&mut self) -> Option<Arc<Mutex<TeamDeathmatch>>> {
         if self.queue.len() >= self.min_players && self.active_match.is_none() {
-            let players: Vec<Uuid> = self.queue.drain(..self.max_players.min(self.queue.len())).collect();
+            let players: Vec<Uuid> = self
+                .queue
+                .drain(..self.max_players.min(self.queue.len()))
+                .collect();
             let match_instance = Arc::new(Mutex::new(TeamDeathmatch::new(players, 50, 600.0)));
             self.active_match = Some(match_instance.clone());
             Some(match_instance)
@@ -309,7 +312,9 @@ mod tests {
     #[test]
     fn test_try_start_match_not_enough_players() {
         let mut mgr = MatchManager::new(4, 16);
-        for _ in 0..3 { mgr.enqueue(Uuid::new_v4()); }
+        for _ in 0..3 {
+            mgr.enqueue(Uuid::new_v4());
+        }
         assert!(mgr.try_start_match().is_none());
     }
 

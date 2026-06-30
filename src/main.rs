@@ -57,9 +57,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         let state = grpc_state.clone();
         let addr = grpc_addr.clone();
         tokio::spawn(async move {
-            grpc::serve(&addr, state)
-                .await
-                .expect("gRPC server failed");
+            grpc::serve(&addr, state).await.expect("gRPC server failed");
         })
     };
 

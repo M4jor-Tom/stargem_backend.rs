@@ -104,7 +104,10 @@ mod tests {
         assert_eq!(ShipSize::from_str("frigate"), Some(ShipSize::Frigate));
         assert_eq!(ShipSize::from_str("Frigate"), Some(ShipSize::Frigate));
         assert_eq!(ShipSize::from_str("fighter"), Some(ShipSize::Fighter));
-        assert_eq!(ShipSize::from_str("interceptor"), Some(ShipSize::Interceptor));
+        assert_eq!(
+            ShipSize::from_str("interceptor"),
+            Some(ShipSize::Interceptor)
+        );
     }
 
     #[test]
@@ -143,7 +146,10 @@ mod tests {
     fn test_ship_size_parsing_all_variants() {
         assert_eq!(ShipSize::from_str("Frigate"), Some(ShipSize::Frigate));
         assert_eq!(ShipSize::from_str("Fighter"), Some(ShipSize::Fighter));
-        assert_eq!(ShipSize::from_str("Interceptor"), Some(ShipSize::Interceptor));
+        assert_eq!(
+            ShipSize::from_str("Interceptor"),
+            Some(ShipSize::Interceptor)
+        );
     }
 
     #[test]

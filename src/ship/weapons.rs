@@ -110,9 +110,15 @@ mod tests {
     #[test]
     fn test_weapon_model_serde_roundtrip() {
         let variants = vec![
-            WeaponModel::Cannon, WeaponModel::Beam, WeaponModel::Lance,
-            WeaponModel::Autocannon, WeaponModel::Pulse, WeaponModel::Railgun,
-            WeaponModel::MachineGun, WeaponModel::Laser, WeaponModel::IonCannon,
+            WeaponModel::Cannon,
+            WeaponModel::Beam,
+            WeaponModel::Lance,
+            WeaponModel::Autocannon,
+            WeaponModel::Pulse,
+            WeaponModel::Railgun,
+            WeaponModel::MachineGun,
+            WeaponModel::Laser,
+            WeaponModel::IonCannon,
         ];
         for v in &variants {
             let json = serde_json::to_string(v).unwrap();
