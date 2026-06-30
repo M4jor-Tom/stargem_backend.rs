@@ -70,5 +70,17 @@
             '';
           };
         };
+
+        apps.scenario-runner = flake-utils.lib.mkApp {
+          drv = pkgs.writeShellApplication {
+            name = "scenario-runner";
+            runtimeInputs = with pkgs; [ backend protobuf ];
+            text = ''
+              export PROTOC="${pkgs.protobuf}/bin/protoc"
+              export PROTOC_INCLUDE="${pkgs.protobuf}/include"
+              exec scenario-runner "$@"
+            '';
+          };
+        };
       });
 }
