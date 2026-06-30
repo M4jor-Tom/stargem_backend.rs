@@ -22,7 +22,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         proto_root.join("grpc/loadout.proto"),
         proto_root.join("grpc/matchmaking.proto"),
         proto_root.join("grpc/match_history.proto"),
-        proto_root.join("grpc/spectator.proto"),
     ];
 
     tonic_build::configure()
@@ -30,7 +29,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .build_client(false)
         .out_dir("src/proto_gen/grpc")
         .extern_path(".stargem.quic", "crate::proto_gen::quic")
-        .compile(grpc_protos, &[proto_root])?;
+        .compile(grpc_protos, &[proto_root.clone()])?;
+
+    let spectator_proto = proto_root.join("grpc/spectator.proto");
+    tonic_build::configure()
+        .build_server(true)
+        .build_client(true)
+        .out_dir("src/proto_gen/grpc")
+        .extern_path(".stargem.quic", "crate::proto_gen::quic")
+        .compile(&[spectator_proto], &[proto_root])?;
 
     Ok(())
 }

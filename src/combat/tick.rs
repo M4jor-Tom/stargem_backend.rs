@@ -158,7 +158,7 @@ impl CombatTickLoop {
     }
 }
 
-pub(crate) fn snapshot_to_proto(s: &TickSnapshot) -> combat_proto::GameStateSnapshot {
+pub fn snapshot_to_proto(s: &TickSnapshot) -> combat_proto::GameStateSnapshot {
     combat_proto::GameStateSnapshot {
         version: 1,
         tick_number: s.tick_number as u32,

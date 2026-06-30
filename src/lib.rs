@@ -4,5 +4,7 @@ pub mod database;
 pub mod game_mode;
 pub mod grpc;
 pub mod proto_gen;
+pub mod scenarios;
 pub mod ship;
+pub mod spectator;
 pub mod transport;
