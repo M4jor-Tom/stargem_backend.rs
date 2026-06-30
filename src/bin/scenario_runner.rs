@@ -64,10 +64,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let addr: std::net::SocketAddr = args.grpc_addr.parse()?;
     let svc = SpectatorServiceServer::new(SpectatorHandler { registry: registry.clone() });
     tokio::spawn(async move {
-        tonic::transport::Server::builder()
+        if let Err(e) = tonic::transport::Server::builder()
             .add_service(svc)
-            .serve(addr).await.unwrap();
+            .serve(addr).await
+        {
+            tracing::error!("gRPC server failed: {e}");
+        }
     });
+    // Brief pause for gRPC server to bind
+    tokio::time::sleep(Duration::from_millis(200)).await;
     tracing::info!("scenario-runner listening on {}, match_id={}", addr, match_id);
 
     run_loop(scn, tx, args.tick_rate, args.loop_).await;
