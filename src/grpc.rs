@@ -9,22 +9,37 @@ use uuid::Uuid;
 use crate::auth::{AuthProvider, MockAuthProvider};
 use crate::game_mode::MatchManager;
 use crate::proto_gen::grpc::auth::auth_service_server::AuthService;
-use crate::proto_gen::grpc::auth::{LoginRequest, LoginResponse, ValidateSessionRequest, ValidateSessionResponse};
+use crate::proto_gen::grpc::auth::{
+    LoginRequest, LoginResponse, ValidateSessionRequest, ValidateSessionResponse,
+};
 use crate::proto_gen::grpc::hangar::hangar_service_server::HangarService;
-use crate::proto_gen::grpc::hangar::{AssignShipToSlotRequest, AssignShipToSlotResponse, ListHangarRequest, ListHangarResponse};
+use crate::proto_gen::grpc::hangar::{
+    AssignShipToSlotRequest, AssignShipToSlotResponse, ListHangarRequest, ListHangarResponse,
+};
 use crate::proto_gen::grpc::loadout::loadout_service_server::LoadoutService;
-use crate::proto_gen::grpc::loadout::{EquipActiveModuleRequest, EquipLoadoutResponse, EquipMissileRequest, EquipPassiveModuleRequest, EquipWeaponRequest, Loadout};
+use crate::proto_gen::grpc::loadout::{
+    EquipActiveModuleRequest, EquipLoadoutResponse, EquipMissileRequest, EquipPassiveModuleRequest,
+    EquipWeaponRequest, Loadout,
+};
 use crate::proto_gen::grpc::match_history::match_history_service_server::MatchHistoryService;
 use crate::proto_gen::grpc::match_history::{GetHistoryRequest, GetHistoryResponse, MatchRecord};
 use crate::proto_gen::grpc::matchmaking::matchmaking_service_server::MatchmakingService;
-use crate::proto_gen::grpc::matchmaking::{LeaveQueueRequest, LeaveQueueResponse, QueueForMatchRequest, QueueForMatchResponse, QueueState, QueueStatusRequest, QueueStatusResponse};
+use crate::proto_gen::grpc::matchmaking::{
+    LeaveQueueRequest, LeaveQueueResponse, QueueForMatchRequest, QueueForMatchResponse, QueueState,
+    QueueStatusRequest, QueueStatusResponse,
+};
 use crate::proto_gen::grpc::shop::shop_service_server::ShopService;
-use crate::proto_gen::grpc::shop::{BuyShipRequest, BuyShipResponse, ListShipsRequest, ListShipsResponse, ShipModel};
+use crate::proto_gen::grpc::shop::{
+    BuyShipRequest, BuyShipResponse, ListShipsRequest, ListShipsResponse, ShipModel,
+};
+use crate::proto_gen::grpc::spectator::spectator_service_server::SpectatorServiceServer;
+use crate::spectator::{MatchRegistry, SpectatorHandler};
 
 pub struct AppState {
     pub auth_provider: Box<dyn AuthProvider>,
     pub match_manager: Arc<Mutex<MatchManager>>,
     pub pool: Option<sqlx::PgPool>,
+    pub spectator_registry: Arc<Mutex<MatchRegistry>>,
 }
 
 impl AppState {
@@ -33,6 +48,7 @@ impl AppState {
             auth_provider: Box::new(MockAuthProvider::new()),
             match_manager: Arc::new(Mutex::new(MatchManager::new(4, 16))),
             pool,
+            spectator_registry: Arc::new(Mutex::new(MatchRegistry::new())),
         }
     }
 }
@@ -43,9 +59,13 @@ pub struct AuthHandler {
 
 #[tonic::async_trait]
 impl AuthService for AuthHandler {
-    async fn login(&self, request: Request<LoginRequest>) -> Result<Response<LoginResponse>, Status> {
+    async fn login(
+        &self,
+        request: Request<LoginRequest>,
+    ) -> Result<Response<LoginResponse>, Status> {
         let req = request.into_inner();
-        let user_id = self.state
+        let user_id = self
+            .state
             .auth_provider
             .authenticate(&req.steam_auth_ticket)
             .await
@@ -57,9 +77,17 @@ impl AuthService for AuthHandler {
         }))
     }
 
-    async fn validate_session(&self, request: Request<ValidateSessionRequest>) -> Result<Response<ValidateSessionResponse>, Status> {
+    async fn validate_session(
+        &self,
+        request: Request<ValidateSessionRequest>,
+    ) -> Result<Response<ValidateSessionResponse>, Status> {
         let req = request.into_inner();
-        match self.state.auth_provider.validate_session(&req.session_token).await {
+        match self
+            .state
+            .auth_provider
+            .validate_session(&req.session_token)
+            .await
+        {
             Ok(user_id) => Ok(Response::new(ValidateSessionResponse {
                 valid: true,
                 user_id: user_id.to_string(),
@@ -78,23 +106,28 @@ pub struct ShopHandler {
 
 #[tonic::async_trait]
 impl ShopService for ShopHandler {
-    async fn list_ships(&self, _request: Request<ListShipsRequest>) -> Result<Response<ListShipsResponse>, Status> {
+    async fn list_ships(
+        &self,
+        _request: Request<ListShipsRequest>,
+    ) -> Result<Response<ListShipsResponse>, Status> {
         let ships = match &self.state.pool {
             Some(pool) => {
                 let rows = sqlx::query_as::<_, (String, String, String, i32)>(
-                    "SELECT id::text, size::text, role::text, price FROM ship_models"
+                    "SELECT id::text, size::text, role::text, price FROM ship_models",
                 )
                 .fetch_all(pool)
                 .await
                 .map_err(|e| Status::internal(e.to_string()))?;
 
-                rows.into_iter().map(|(id, size, role, price)| ShipModel {
-                    id,
-                    name: String::new(),
-                    size,
-                    role,
-                    price,
-                }).collect()
+                rows.into_iter()
+                    .map(|(id, size, role, price)| ShipModel {
+                        id,
+                        name: String::new(),
+                        size,
+                        role,
+                        price,
+                    })
+                    .collect()
             }
             None => vec![],
         };
@@ -102,19 +135,26 @@ impl ShopService for ShopHandler {
         Ok(Response::new(ListShipsResponse { ships }))
     }
 
-    async fn buy_ship(&self, request: Request<BuyShipRequest>) -> Result<Response<BuyShipResponse>, Status> {
+    async fn buy_ship(
+        &self,
+        request: Request<BuyShipRequest>,
+    ) -> Result<Response<BuyShipResponse>, Status> {
         let req = request.into_inner();
-        let pool = self.state.pool.as_ref().ok_or_else(|| Status::failed_precondition("database not available"))?;
+        let pool = self
+            .state
+            .pool
+            .as_ref()
+            .ok_or_else(|| Status::failed_precondition("database not available"))?;
 
-        let ship_model_id = Uuid::parse_str(&req.ship_model_id).map_err(|_| Status::invalid_argument("invalid ship_model_id"))?;
+        let ship_model_id = Uuid::parse_str(&req.ship_model_id)
+            .map_err(|_| Status::invalid_argument("invalid ship_model_id"))?;
 
-        let exists: bool = sqlx::query_scalar(
-            "SELECT EXISTS(SELECT 1 FROM ship_models WHERE id = $1)"
-        )
-        .bind(ship_model_id)
-        .fetch_one(pool)
-        .await
-        .map_err(|e| Status::internal(e.to_string()))?;
+        let exists: bool =
+            sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM ship_models WHERE id = $1)")
+                .bind(ship_model_id)
+                .fetch_one(pool)
+                .await
+                .map_err(|e| Status::internal(e.to_string()))?;
 
         if !exists {
             return Ok(Response::new(BuyShipResponse {
@@ -125,18 +165,16 @@ impl ShopService for ShopHandler {
         }
 
         let player_ship_id = Uuid::new_v4();
-        sqlx::query(
-            "INSERT INTO player_ships (id, user_id, ship_model_id) VALUES ($1, $2, $3)"
-        )
-        .bind(player_ship_id)
-        // FIXME: Bug #3 — uses Uuid::nil() as a placeholder user_id.
-        // The auth middleware needs to extract the authenticated user's ID
-        // from the gRPC context. See docs/superpowers/specs/2026-06-19-missing-test-scenarios-design.md
-        .bind(Uuid::nil())
-        .bind(ship_model_id)
-        .execute(pool)
-        .await
-        .map_err(|e| Status::internal(e.to_string()))?;
+        sqlx::query("INSERT INTO player_ships (id, user_id, ship_model_id) VALUES ($1, $2, $3)")
+            .bind(player_ship_id)
+            // FIXME: Bug #3 — uses Uuid::nil() as a placeholder user_id.
+            // The auth middleware needs to extract the authenticated user's ID
+            // from the gRPC context. See docs/superpowers/specs/2026-06-19-missing-test-scenarios-design.md
+            .bind(Uuid::nil())
+            .bind(ship_model_id)
+            .execute(pool)
+            .await
+            .map_err(|e| Status::internal(e.to_string()))?;
 
         Ok(Response::new(BuyShipResponse {
             success: true,
@@ -152,11 +190,17 @@ pub struct HangarHandler {
 
 #[tonic::async_trait]
 impl HangarService for HangarHandler {
-    async fn list_hangar(&self, _request: Request<ListHangarRequest>) -> Result<Response<ListHangarResponse>, Status> {
+    async fn list_hangar(
+        &self,
+        _request: Request<ListHangarRequest>,
+    ) -> Result<Response<ListHangarResponse>, Status> {
         Ok(Response::new(ListHangarResponse { slots: vec![] }))
     }
 
-    async fn assign_ship_to_slot(&self, request: Request<AssignShipToSlotRequest>) -> Result<Response<AssignShipToSlotResponse>, Status> {
+    async fn assign_ship_to_slot(
+        &self,
+        request: Request<AssignShipToSlotRequest>,
+    ) -> Result<Response<AssignShipToSlotResponse>, Status> {
         let _req = request.into_inner();
         Ok(Response::new(AssignShipToSlotResponse {
             success: true,
@@ -182,7 +226,10 @@ impl LoadoutHandler {
 
 #[tonic::async_trait]
 impl LoadoutService for LoadoutHandler {
-    async fn equip_passive_module(&self, _request: Request<EquipPassiveModuleRequest>) -> Result<Response<EquipLoadoutResponse>, Status> {
+    async fn equip_passive_module(
+        &self,
+        _request: Request<EquipPassiveModuleRequest>,
+    ) -> Result<Response<EquipLoadoutResponse>, Status> {
         Ok(Response::new(EquipLoadoutResponse {
             success: true,
             loadout: Self::empty_loadout(),
@@ -190,7 +237,10 @@ impl LoadoutService for LoadoutHandler {
         }))
     }
 
-    async fn equip_active_module(&self, _request: Request<EquipActiveModuleRequest>) -> Result<Response<EquipLoadoutResponse>, Status> {
+    async fn equip_active_module(
+        &self,
+        _request: Request<EquipActiveModuleRequest>,
+    ) -> Result<Response<EquipLoadoutResponse>, Status> {
         Ok(Response::new(EquipLoadoutResponse {
             success: true,
             loadout: Self::empty_loadout(),
@@ -198,7 +248,10 @@ impl LoadoutService for LoadoutHandler {
         }))
     }
 
-    async fn equip_weapon(&self, _request: Request<EquipWeaponRequest>) -> Result<Response<EquipLoadoutResponse>, Status> {
+    async fn equip_weapon(
+        &self,
+        _request: Request<EquipWeaponRequest>,
+    ) -> Result<Response<EquipLoadoutResponse>, Status> {
         Ok(Response::new(EquipLoadoutResponse {
             success: true,
             loadout: Self::empty_loadout(),
@@ -206,7 +259,10 @@ impl LoadoutService for LoadoutHandler {
         }))
     }
 
-    async fn equip_missile(&self, _request: Request<EquipMissileRequest>) -> Result<Response<EquipLoadoutResponse>, Status> {
+    async fn equip_missile(
+        &self,
+        _request: Request<EquipMissileRequest>,
+    ) -> Result<Response<EquipLoadoutResponse>, Status> {
         Ok(Response::new(EquipLoadoutResponse {
             success: true,
             loadout: Self::empty_loadout(),
@@ -221,7 +277,10 @@ pub struct MatchmakingHandler {
 
 #[tonic::async_trait]
 impl MatchmakingService for MatchmakingHandler {
-    async fn queue_for_match(&self, request: Request<QueueForMatchRequest>) -> Result<Response<QueueForMatchResponse>, Status> {
+    async fn queue_for_match(
+        &self,
+        request: Request<QueueForMatchRequest>,
+    ) -> Result<Response<QueueForMatchResponse>, Status> {
         let _req = request.into_inner();
         let mut mgr = self.state.match_manager.lock().await;
 
@@ -242,7 +301,10 @@ impl MatchmakingService for MatchmakingHandler {
         }))
     }
 
-    async fn queue_status(&self, _request: Request<QueueStatusRequest>) -> Result<Response<QueueStatusResponse>, Status> {
+    async fn queue_status(
+        &self,
+        _request: Request<QueueStatusRequest>,
+    ) -> Result<Response<QueueStatusResponse>, Status> {
         Ok(Response::new(QueueStatusResponse {
             state: Some(QueueState {
                 position: 0,
@@ -252,7 +314,10 @@ impl MatchmakingService for MatchmakingHandler {
         }))
     }
 
-    async fn leave_queue(&self, _request: Request<LeaveQueueRequest>) -> Result<Response<LeaveQueueResponse>, Status> {
+    async fn leave_queue(
+        &self,
+        _request: Request<LeaveQueueRequest>,
+    ) -> Result<Response<LeaveQueueResponse>, Status> {
         Ok(Response::new(LeaveQueueResponse { left: true }))
     }
 }
@@ -263,7 +328,10 @@ pub struct MatchHistoryHandler {
 
 #[tonic::async_trait]
 impl MatchHistoryService for MatchHistoryHandler {
-    async fn get_history(&self, request: Request<GetHistoryRequest>) -> Result<Response<GetHistoryResponse>, Status> {
+    async fn get_history(
+        &self,
+        request: Request<GetHistoryRequest>,
+    ) -> Result<Response<GetHistoryResponse>, Status> {
         let _req = request.into_inner();
 
         let pool = match &self.state.pool {
@@ -280,15 +348,17 @@ impl MatchHistoryService for MatchHistoryHandler {
 
         let matches = rows
             .into_iter()
-            .map(|(id, ts, kills, deaths, dealt, taken, result)| MatchRecord {
-                match_id: id,
-                timestamp: ts,
-                kills,
-                deaths,
-                damage_dealt: dealt,
-                damage_taken: taken,
-                result,
-            })
+            .map(
+                |(id, ts, kills, deaths, dealt, taken, result)| MatchRecord {
+                    match_id: id,
+                    timestamp: ts,
+                    kills,
+                    deaths,
+                    damage_dealt: dealt,
+                    damage_taken: taken,
+                    result,
+                },
+            )
             .collect();
 
         Ok(Response::new(GetHistoryResponse { matches }))
@@ -298,12 +368,25 @@ impl MatchHistoryService for MatchHistoryHandler {
 pub async fn serve(addr: &str, state: Arc<AppState>) -> Result<(), Box<dyn std::error::Error>> {
     use tonic::transport::Server;
 
-    let auth = AuthHandler { state: state.clone() };
-    let shop = ShopHandler { state: state.clone() };
-    let hangar = HangarHandler { state: state.clone() };
-    let loadout = LoadoutHandler { state: state.clone() };
-    let matchmaking = MatchmakingHandler { state: state.clone() };
-    let match_history = MatchHistoryHandler { state };
+    let auth = AuthHandler {
+        state: state.clone(),
+    };
+    let shop = ShopHandler {
+        state: state.clone(),
+    };
+    let hangar = HangarHandler {
+        state: state.clone(),
+    };
+    let loadout = LoadoutHandler {
+        state: state.clone(),
+    };
+    let matchmaking = MatchmakingHandler {
+        state: state.clone(),
+    };
+    let match_history = MatchHistoryHandler { state: state.clone() };
+    let spectator = SpectatorHandler {
+        registry: state.spectator_registry.clone(),
+    };
 
     Server::builder()
         .add_service(crate::proto_gen::grpc::auth::auth_service_server::AuthServiceServer::new(auth))
@@ -312,6 +395,7 @@ pub async fn serve(addr: &str, state: Arc<AppState>) -> Result<(), Box<dyn std::
         .add_service(crate::proto_gen::grpc::loadout::loadout_service_server::LoadoutServiceServer::new(loadout))
         .add_service(crate::proto_gen::grpc::matchmaking::matchmaking_service_server::MatchmakingServiceServer::new(matchmaking))
         .add_service(crate::proto_gen::grpc::match_history::match_history_service_server::MatchHistoryServiceServer::new(match_history))
+        .add_service(SpectatorServiceServer::new(spectator))
         .serve(addr.parse()?)
         .await?;
 
