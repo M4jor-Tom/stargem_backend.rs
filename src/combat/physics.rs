@@ -7,7 +7,7 @@ pub struct PhysicsState {
     pub rotation: [f32; 4],
 }
 
-#[derive(Debug, Clone, serde::Deserialize)]
+#[derive(Debug, Clone, Default, serde::Deserialize)]
 pub struct ShipInput {
     pub throttle: f32,
     pub yaw: f32,
@@ -101,9 +101,14 @@ mod tests {
 
     fn dummy_stats() -> PlayerShipStats {
         PlayerShipStats {
-            max_shield: 100.0, max_armor: 100.0, max_energy: 100.0,
-            speed: 50.0, agility: 10.0,
-            current_shield: 100.0, current_armor: 100.0, current_energy: 100.0,
+            max_shield: 100.0,
+            max_armor: 100.0,
+            max_energy: 100.0,
+            speed: 50.0,
+            agility: 10.0,
+            current_shield: 100.0,
+            current_armor: 100.0,
+            current_energy: 100.0,
         }
     }
 
@@ -154,7 +159,12 @@ mod tests {
     #[test]
     fn test_update_zero_throttle_no_movement() {
         let mut s = PhysicsState::new();
-        let input = ShipInput { throttle: 0.0, yaw: 0.0, pitch: 0.0, roll: 0.0 };
+        let input = ShipInput {
+            throttle: 0.0,
+            yaw: 0.0,
+            pitch: 0.0,
+            roll: 0.0,
+        };
         let stats = dummy_stats();
         s.update(&input, &stats, 1.0);
         assert_eq!(s.position, [0.0; 3]);
@@ -163,7 +173,12 @@ mod tests {
     #[test]
     fn test_update_throttle_moves_forward() {
         let mut s = PhysicsState::new();
-        let input = ShipInput { throttle: 1.0, yaw: 0.0, pitch: 0.0, roll: 0.0 };
+        let input = ShipInput {
+            throttle: 1.0,
+            yaw: 0.0,
+            pitch: 0.0,
+            roll: 0.0,
+        };
         let stats = dummy_stats();
         s.update(&input, &stats, 1.0);
         assert!(s.velocity[2] > 0.0, "should have forward velocity");
@@ -174,7 +189,12 @@ mod tests {
     fn test_update_clamps_velocity_to_speed_cap() {
         let mut s = PhysicsState::new();
         s.velocity = [0.0, 0.0, 1000.0];
-        let input = ShipInput { throttle: 0.0, yaw: 0.0, pitch: 0.0, roll: 0.0 };
+        let input = ShipInput {
+            throttle: 0.0,
+            yaw: 0.0,
+            pitch: 0.0,
+            roll: 0.0,
+        };
         let stats = dummy_stats();
         s.update(&input, &stats, 1.0);
         let speed = s.velocity.iter().map(|v| v.powi(2)).sum::<f32>().sqrt();
@@ -185,7 +205,12 @@ mod tests {
     fn test_update_applies_drag() {
         let mut s = PhysicsState::new();
         s.velocity = [10.0, 0.0, 0.0];
-        let input = ShipInput { throttle: 0.0, yaw: 0.0, pitch: 0.0, roll: 0.0 };
+        let input = ShipInput {
+            throttle: 0.0,
+            yaw: 0.0,
+            pitch: 0.0,
+            roll: 0.0,
+        };
         let stats = dummy_stats();
         s.update(&input, &stats, 1.0);
         assert!(s.velocity[0].abs() < 10.0, "drag should reduce velocity");
@@ -196,20 +221,39 @@ mod tests {
     fn test_dt_zero_produces_no_change() {
         let mut s = PhysicsState::new();
         s.velocity = [10.0, 20.0, 30.0];
-        let input = ShipInput { throttle: 1.0, yaw: 0.5, pitch: 0.3, roll: 0.1 };
+        let input = ShipInput {
+            throttle: 1.0,
+            yaw: 0.5,
+            pitch: 0.3,
+            roll: 0.1,
+        };
         let stats = dummy_stats();
         let original = s.clone();
         s.update(&input, &stats, 0.0);
-        assert_eq!(s.position, original.position, "position should not change with dt=0");
-        assert_eq!(s.velocity, original.velocity, "velocity should not change with dt=0");
-        assert_eq!(s.rotation, original.rotation, "rotation should not change with dt=0");
+        assert_eq!(
+            s.position, original.position,
+            "position should not change with dt=0"
+        );
+        assert_eq!(
+            s.velocity, original.velocity,
+            "velocity should not change with dt=0"
+        );
+        assert_eq!(
+            s.rotation, original.rotation,
+            "rotation should not change with dt=0"
+        );
     }
 
     #[test]
     fn test_negative_dt_clamped() {
         let mut s = PhysicsState::new();
         s.velocity = [10.0, 0.0, 0.0];
-        let input = ShipInput { throttle: 0.0, yaw: 0.0, pitch: 0.0, roll: 0.0 };
+        let input = ShipInput {
+            throttle: 0.0,
+            yaw: 0.0,
+            pitch: 0.0,
+            roll: 0.0,
+        };
         let stats = dummy_stats();
         s.update(&input, &stats, -1.0);
         let speed = s.velocity.iter().map(|v| v.powi(2)).sum::<f32>().sqrt();
@@ -226,24 +270,46 @@ mod tests {
     fn test_large_dt_numerically_stable() {
         let mut s = PhysicsState::new();
         s.velocity = [10.0, 20.0, 30.0];
-        let input = ShipInput { throttle: 1.0, yaw: 0.1, pitch: 0.2, roll: 0.0 };
+        let input = ShipInput {
+            throttle: 1.0,
+            yaw: 0.1,
+            pitch: 0.2,
+            roll: 0.0,
+        };
         let stats = dummy_stats();
         s.update(&input, &stats, 1000.0);
         for c in s.position.iter() {
-            assert!(c.is_finite(), "position component should be finite, got {}", c);
+            assert!(
+                c.is_finite(),
+                "position component should be finite, got {}",
+                c
+            );
         }
         for c in s.velocity.iter() {
-            assert!(c.is_finite(), "velocity component should be finite, got {}", c);
+            assert!(
+                c.is_finite(),
+                "velocity component should be finite, got {}",
+                c
+            );
         }
         for c in s.rotation.iter() {
-            assert!(c.is_finite(), "rotation component should be finite, got {}", c);
+            assert!(
+                c.is_finite(),
+                "rotation component should be finite, got {}",
+                c
+            );
         }
     }
 
     #[test]
     fn test_forward_vector_unit_length_after_rotation() {
         let mut s = PhysicsState::new();
-        let input = ShipInput { throttle: 0.0, yaw: 1.0, pitch: 0.5, roll: 0.3 };
+        let input = ShipInput {
+            throttle: 0.0,
+            yaw: 1.0,
+            pitch: 0.5,
+            roll: 0.3,
+        };
         let stats = dummy_stats();
         s.update(&input, &stats, 1.0);
         let fwd = s.forward_vector();
