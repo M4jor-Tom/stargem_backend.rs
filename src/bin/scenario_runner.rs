@@ -11,25 +11,15 @@ use stargem_backend::combat::physics::PhysicsState;
 use stargem_backend::combat::tick::{snapshot_to_proto, DamageEventRecord, PlayerState, TickSnapshot};
 use stargem_backend::proto_gen::grpc::spectator::spectator_service_server::SpectatorServiceServer;
 use stargem_backend::scenarios::{
-    damage_type_str, ship_destruction_electromag, ship_destruction_kinetic,
-    ship_destruction_overkill, Scenario, ScenarioAction,
+    damage_type_str, lookup_scenario, pick_scenario_interactive, Scenario, ScenarioAction,
 };
 use stargem_backend::spectator::{MatchRegistry, SpectatorHandler};
 
-fn lookup(name: &str) -> Option<Scenario> {
-    match name {
-        "ship_destruction_kinetic" => Some(ship_destruction_kinetic()),
-        "ship_destruction_electromag" => Some(ship_destruction_electromag()),
-        "ship_destruction_overkill" => Some(ship_destruction_overkill()),
-        _ => None,
-    }
-}
-
 #[derive(Parser, Debug)]
 struct Args {
-    /// Which scenario to run.
+    /// Which scenario to run. If omitted, prompt interactively on stdin.
     #[arg(long)]
-    scenario: String,
+    scenario: Option<String>,
 
     /// gRPC listen address (spectator subscribers connect here).
     #[arg(long, default_value = "0.0.0.0:50051")]
@@ -48,8 +38,12 @@ struct Args {
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     tracing_subscriber::fmt::init();
     let args = Args::parse();
-    let scn = lookup(&args.scenario)
-        .ok_or_else(|| format!("unknown scenario: {}", args.scenario))?;
+    let name = match args.scenario {
+        Some(n) => n,
+        None => pick_scenario_interactive()?.to_string(),
+    };
+    let scn = lookup_scenario(&name)
+        .ok_or_else(|| format!("unknown scenario: {}", name))?;
 
     let registry = Arc::new(Mutex::new(MatchRegistry::new()));
     let (tx, _) = broadcast::channel(256);

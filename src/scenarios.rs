@@ -27,6 +27,37 @@ pub enum ScenarioAction {
     EndMatch,
 }
 
+pub type ScenarioBuilder = fn() -> Scenario;
+
+pub const ALL_SCENARIOS: &[(&str, ScenarioBuilder)] = &[
+    ("ship_destruction_kinetic", ship_destruction_kinetic),
+    ("ship_destruction_electromag", ship_destruction_electromag),
+    ("ship_destruction_overkill", ship_destruction_overkill),
+];
+
+pub fn lookup_scenario(name: &str) -> Option<Scenario> {
+    ALL_SCENARIOS.iter().find(|(n, _)| *n == name).map(|(_, f)| f())
+}
+
+/// Prompt on stderr, read a numeric choice on stdin, return the chosen name.
+/// stdout is left untouched so callers can capture the picked name from stdout
+/// when this runs as its own binary.
+pub fn pick_scenario_interactive() -> std::io::Result<&'static str> {
+    use std::io::{BufRead, Write};
+    let mut err = std::io::stderr().lock();
+    writeln!(err, "Available scenarios:")?;
+    for (i, (name, _)) in ALL_SCENARIOS.iter().enumerate() {
+        writeln!(err, "  [{}] {}", i + 1, name)?;
+    }
+    write!(err, "Pick a scenario [1-{}]: ", ALL_SCENARIOS.len())?;
+    err.flush()?;
+    let mut line = String::new();
+    std::io::stdin().lock().read_line(&mut line)?;
+    let idx = line.trim().parse::<usize>().unwrap_or(1);
+    let idx = idx.saturating_sub(1).min(ALL_SCENARIOS.len() - 1);
+    Ok(ALL_SCENARIOS[idx].0)
+}
+
 pub fn damage_type_str(d: DamageType) -> &'static str {
     match d {
         DamageType::Kinetic => "kinetic",

@@ -30,3 +30,7 @@ tonic-build = "0.11"
 [[bin]]
 name = "scenario-runner"
 path = "src/bin/scenario_runner.rs"
+
+[[bin]]
+name = "scenario-picker"
+path = "src/bin/scenario_picker.rs"

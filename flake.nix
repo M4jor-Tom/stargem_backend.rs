@@ -85,5 +85,15 @@
             '';
           };
         };
+
+        apps.scenario-picker = flake-utils.lib.mkApp {
+          drv = pkgs.writeShellApplication {
+            name = "scenario-picker";
+            runtimeInputs = with pkgs; [ backend ];
+            text = ''
+              exec scenario-picker "$@"
+            '';
+          };
+        };
       });
 }
