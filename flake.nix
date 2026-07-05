@@ -22,18 +22,22 @@
         };
         craneLib = (crane.mkLib pkgs).overrideToolchain rustToolchain;
 
+        src = pkgs.lib.cleanSourceWith {
+          src = ./.;
+          filter = path: type:
+            (pkgs.lib.hasSuffix ".sql" path) || (craneLib.filterCargoSources path type);
+        };
+
         commonArgs = {
+          inherit src;
           nativeBuildInputs = with pkgs; [ pkg-config ];
           buildInputs = with pkgs; [ openssl clang ];
         };
 
-        cargoArtifacts = craneLib.buildDepsOnly (commonArgs // {
-          src = craneLib.cleanCargoSource ./.;
-        });
+        cargoArtifacts = craneLib.buildDepsOnly commonArgs;
 
         backend = craneLib.buildPackage (commonArgs // {
           inherit cargoArtifacts;
-          src = craneLib.cleanCargoSource ./.;
         });
       in
       {
@@ -54,7 +58,6 @@
         };
         packages.test = craneLib.cargoTest (commonArgs // {
           inherit cargoArtifacts;
-          src = craneLib.cleanCargoSource ./.;
         });
 
         apps.test = flake-utils.lib.mkApp {
